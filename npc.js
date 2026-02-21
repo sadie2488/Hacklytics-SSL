@@ -1,5 +1,5 @@
 const npc = {
-    x: 50, y: 300,
+    x: 50, y: 320,
     width: 30, height: 30,
     velocityX: 0, velocityY: 0,
     isGrounded: false,
@@ -7,70 +7,74 @@ const npc = {
     state: 'SEEKING',
 
     update(goalX) {
-        let distanceToGoal = goalX - this.x;
-        const gapStart = 230; 
-        const gapEnd = 450; 
+    let distanceToGoal = goalX - this.x;
+    const prevY = this.y;
 
-        if (this.onMouse) {
-            mouse.stillTimer++;
+    // Remove the hardcoded gapStart/gapEnd variables. 
+    // Instead, let's look at the actual horizontal distance to the mouse.
+    let distToMouse = mouse.x - this.x;
+    
+    // The NPC is "ready" if the platform is locked and can reach the goal area
+    // We check if the goal is to the right of the current platform
+    let canReachFinal = (goalX > this.x) && (Math.abs(goalX - this.x) < 1000); 
+
+    let readyToLeapFromMouse = this.onMouse && mouse.isLocked;            
+    let readyToJumpToMouse = this.state === 'WAITING' && mouse.active && 
+                             Math.abs(distToMouse) < maxJumpDistance && mouse.x > this.x;
+
+    // --- STATE MACHINE ---
+    if (this.onMouse) {
+        if (readyToLeapFromMouse) {
+            this.state = 'JUMPING';
+            this.velocityY = jumpForce;
+            // Give the NPC a "boost" proportional to your goal direction
+            this.velocityX = speed * 1.2;
+            this.onMouse = false;
+            this.isGrounded = false;
         }
-
-        // --- DECISION LOGIC ---
-        if (this.state === 'SEEKING' || this.state === 'WAITING' || this.onMouse) {
+    }
+    // ... rest of your state logic
             
-            // Calculate if the final ledge is within jumping reach from CURRENT position
-            let distanceToLedge = gapEnd - this.x;
-            let canReachFinal = maxJumpDistance > distanceToLedge && this.x < gapEnd;
+            // --- Inside npc.update(goalX) ---
+        // --- Inside the SEEKING state logic in npc.js ---
+        if (this.state === 'SEEKING') {
+            // Determine direction toward the 1800px goal
+            let direction = (goalX > this.x) ? 1 : -1;
+            let nextX = this.x + (direction * speed);
             
-            let distToMouse = mouse.x - this.x;
-            let canReachMouse = mouse.active && Math.abs(distToMouse) < maxJumpDistance && mouse.x > this.x;
+            // Ledge Detection: Check if there is a platform at our current feet height
+            let hasGroundAhead = platforms.some(p => 
+                nextX + this.width/2 > p.x && 
+                nextX + this.width/2 < p.x + p.w &&
+                Math.abs((this.y + this.height) - p.y) < 10
+            );
 
-            // NEW: Logic to jump from the mouse to the ledge if still
-            let readyToLeapFromMouse = this.onMouse && mouse.isLocked && canReachFinal;            
-            // Logic to jump from the ground to the mouse
-            let readyToJumpToMouse = this.state === 'WAITING' && canReachMouse;
-
-            if (readyToLeapFromMouse || readyToJumpToMouse || (this.state === 'SEEKING' && this.x > gapStart - 20 && this.x < gapStart)) {
-                if (canReachFinal || canReachMouse) {
-                    this.state = 'JUMPING';
-                    this.velocityY = jumpForce;
-                    this.onMouse = false; 
-                    this.isGrounded = false;
-                } else if (this.state !== 'WAITING' && !this.onMouse) {
-                    this.state = 'WAITING';
-                    this.velocityX = 0;
-                    this.x = gapStart - 5;
-                }
+            if (hasGroundAhead) {
+                this.x = nextX;
+            } else {
+                this.state = 'WAITING'; // Stop at ledge
             }
-            
-            if (this.state === 'SEEKING') {
-                this.velocityX = (distanceToGoal > 0) ? speed : -speed;
-            } else if (this.state === 'WAITING' || this.onMouse) {
-                this.velocityX = 0;
-            }
-        } 
+        }
+        
+        if (this.state === 'WAITING') {
+            this.velocityX = 0;
+        }
+ 
         
         if (this.state === 'JUMPING') {
-            this.velocityX = speed;
-            if (this.isGrounded && this.x > gapEnd) {
-                this.state = 'SEEKING';
-            }
+            // The velocity is set when the jump starts.
+            // The state is reset to 'SEEKING' upon landing (in collision logic).
+            // No action needed here while in mid-air.
         }
 
         // --- PHYSICS ---
         if (this.onMouse) {
-            this.x += mouse.velX;
-            this.y += mouse.velY;
+            // Instead of snapping to mouse.x (which is screen-based), 
+            // we use the processed mouse.x which already has cameraX added.
+            this.x = mouse.x + (mouse.width / 2) - (this.width / 2);
+            this.y = mouse.y - this.height;
 
-            // Create a 10px safety buffer on each side so it doesn't fall off the edge
-            const buffer = 10;
-            const minX = mouse.x + buffer;
-            const maxX = mouse.x + mouse.width - this.width - buffer;
-
-            // Clamp the NPC's position so it stays within the "safe" middle of the platform
-            if (this.x < minX) this.x = minX;
-            if (this.x > maxX) this.x = maxX;
-
+            // Reset velocities so it doesn't build up 'ghost speed'
             this.velocityX = 0;
             this.velocityY = 0;
         }
@@ -78,14 +82,25 @@ const npc = {
         this.x += this.velocityX;
         this.y += this.velocityY;
 
-        if (!this.onMouse && (this.y + this.height < groundY)) {
+        // Clamp horizontal drift while airborne so hand jumps stay controlled.
+        if (!this.onMouse) {
+            const maxAirSpeed = speed * 1.5;
+            if (this.velocityX > maxAirSpeed) this.velocityX = maxAirSpeed;
+            if (this.velocityX < -maxAirSpeed) this.velocityX = -maxAirSpeed;
+        }
+
+        // Apply gravity whenever we're not riding the hand platform.
+        if (!this.onMouse) {
             this.velocityY += gravity;
             this.isGrounded = false;
         }
 
-        // COLLISION: Mouse Platform
+        // --- Inside npc.update() in npc.js ---
+        this.isGrounded = false; 
+
+        // 1. Check Collision with Mouse Platform
         if (this.velocityY >= 0 && 
-            this.x + this.width > mouse.x - 5 && this.x < mouse.x + mouse.width + 5 &&
+            this.x + this.width > mouse.x && this.x < mouse.x + mouse.width &&
             this.y + this.height >= mouse.y && this.y + this.height <= mouse.y + 15) {
             
             this.y = mouse.y - this.height;
@@ -96,20 +111,33 @@ const npc = {
             this.onMouse = false;
         }
 
-        // COLLISION: Static Platforms
-        let onFirstPlatform = (this.x < gapStart);
-        let onSecondPlatform = (this.x + this.width > gapEnd);
-
-        if (this.y + this.height >= groundY && (onFirstPlatform || onSecondPlatform)) {
-            this.y = groundY - this.height;
-            this.velocityY = 0;
-            this.isGrounded = true;
-            if (this.state === 'JUMPING' && onSecondPlatform) this.state = 'SEEKING';
-        } else if (!this.onMouse) {
-            this.isGrounded = false;
-            if (this.y > canvas.height) { 
-                this.x = 50; this.y = 300; this.state = 'SEEKING';
+        // 2. Check Collision with ALL Level Platforms
+        platforms.forEach(p => {
+            // Swept collision: catches landing even if downward speed skips over the 10px band.
+            const prevBottom = prevY + this.height;
+            const currBottom = this.y + this.height;
+            if (this.velocityY >= 0 && 
+                this.x + this.width > p.x && this.x < p.x + p.w &&
+                prevBottom <= p.y && currBottom >= p.y) {
+                
+                this.y = p.y - this.height; // Snap to the platform top
+                this.velocityY = 0;
+                this.isGrounded = true;
+                this.onMouse = false; 
+                if (this.state === 'JUMPING') this.state = 'SEEKING';
             }
+        });
+
+        // --- COLLISION LOGIC ---
+        // Fall protection: Reset if the NPC falls off the bottom
+        if (this.y > canvas.height + 100) {
+            this.x = 50; 
+            this.y = 320;
+            this.velocityX = 0;
+            this.velocityY = 0;
+            this.onMouse = false;
+            this.isGrounded = true;
+            this.state = 'SEEKING';
         }
     },
 

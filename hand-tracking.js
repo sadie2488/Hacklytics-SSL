@@ -4,12 +4,13 @@ function onResults(results) {
         const wrist = hand[0];
         const indexTip = hand[8];
         const indexKnuckle = hand[5];
+        const knuckle = hand[9];
 
         // Robust fist detection: Tip is "lower" (higher Y) than the knuckle
         mouse.isLocked = indexTip.y > indexKnuckle.y;
 
+        // --- Inside your onResults function ---
         if (!mouse.isLocked) {
-            const knuckle = hand[9];
             const targetX = (1 - ((wrist.x + knuckle.x) / 2)) * canvas.width;
             const targetY = ((wrist.y + knuckle.y) / 2) * canvas.height;
 
@@ -17,7 +18,8 @@ function onResults(results) {
             mouse.lastY = mouse.y;
             
             const smoothing = 0.1;
-            mouse.x += (targetX - (mouse.width / 2) - mouse.x) * smoothing;
+            // Add cameraX so the platform stays with your physical hand position
+            mouse.x += (targetX + cameraX - (mouse.width / 2) - mouse.x) * smoothing;
             mouse.y += (targetY - mouse.y) * smoothing;
 
             mouse.velX = mouse.x - mouse.lastX;
