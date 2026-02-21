@@ -38,23 +38,24 @@ const npc = {
             // --- Inside npc.update(goalX) ---
         // --- Inside the SEEKING state logic in npc.js ---
         if (this.state === 'SEEKING') {
-            // Determine direction toward the 1800px goal
-            let direction = (goalX > this.x) ? 1 : -1;
-            let nextX = this.x + (direction * speed);
-            
-            // Ledge Detection: Check if there is a platform at our current feet height
-            let hasGroundAhead = platforms.some(p => 
-                nextX + this.width/2 > p.x && 
-                nextX + this.width/2 < p.x + p.w &&
-                Math.abs((this.y + this.height) - p.y) < 10
-            );
+        // Walk toward the goal
+        let direction = (goalX > this.x) ? 1 : -1;
+        let nextX = this.x + (direction * speed);
 
-            if (hasGroundAhead) {
-                this.x = nextX;
-            } else {
-                this.state = 'WAITING'; // Stop at ledge
-            }
+        // Only move if there is ground, but ignore ledge detection 
+        // if we are very close to the goal (to allow the "win" touch)
+        let hasGroundAhead = platforms.some(p => 
+            nextX + this.width/2 > p.x && 
+            nextX + this.width/2 < p.x + p.w &&
+            Math.abs((this.y + this.height) - p.y) < 10
+        );
+
+        if (hasGroundAhead || Math.abs(goalX - this.x) < 20) {
+            this.x = nextX;
+        } else {
+            this.state = 'WAITING';
         }
+    }
         
         if (this.state === 'WAITING') {
             this.velocityX = 0;
@@ -96,34 +97,30 @@ const npc = {
         }
 
         // --- Inside npc.update() in npc.js ---
-        this.isGrounded = false; 
+        this.isGrounded = false;
 
-        // 1. Check Collision with Mouse Platform
+        // Check collision with the hand platform first
         if (this.velocityY >= 0 && 
             this.x + this.width > mouse.x && this.x < mouse.x + mouse.width &&
-            this.y + this.height >= mouse.y && this.y + this.height <= mouse.y + 15) {
-            
+            this.y + this.height >= mouse.y && this.y + this.height <= mouse.y + 10) {
             this.y = mouse.y - this.height;
             this.velocityY = 0;
             this.isGrounded = true;
             this.onMouse = true;
-        } else {
-            this.onMouse = false;
         }
 
-        // 2. Check Collision with ALL Level Platforms
+        // Check collision with ALL foreground platforms
         platforms.forEach(p => {
-            // Swept collision: catches landing even if downward speed skips over the 10px band.
-            const prevBottom = prevY + this.height;
-            const currBottom = this.y + this.height;
             if (this.velocityY >= 0 && 
-                this.x + this.width > p.x && this.x < p.x + p.w &&
-                prevBottom <= p.y && currBottom >= p.y) {
+                this.x + this.width > p.x && 
+                this.x < p.x + p.w &&
+                this.y + this.height >= p.y && 
+                this.y + this.height <= p.y + 15) { // 15px "catch" zone
                 
-                this.y = p.y - this.height; // Snap to the platform top
+                this.y = p.y - this.height;
                 this.velocityY = 0;
                 this.isGrounded = true;
-                this.onMouse = false; 
+                this.onMouse = false;
                 if (this.state === 'JUMPING') this.state = 'SEEKING';
             }
         });
@@ -160,7 +157,7 @@ const npc = {
             const arcX = startX + (initialVelocityX * t);
             const arcY = startY + (initialVelocityY * t) + (0.5 * gravity * t * t);
             ctx.lineTo(arcX, arcY);
-            if (arcY > groundY || arcX > canvas.width) break;
+            if (arcY > groundY || arcX > levelWidth) break;
         }
         ctx.stroke();
         ctx.restore();

@@ -1,18 +1,36 @@
+let isLevelComplete = false;
+
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 const videoElement = document.getElementById('webcam');
 
+const speed = 5;
+const gravity = 0.8;
+const jumpForce = -15;
+const groundLevel = 350;
+const groundY = groundLevel;
+const levelWidth = 2000;
+
+// One long flat platform
 const platforms = [
-    { x: 0, y: 350, w: 230, h: 50 },
-    { x: 450, y: 350, w: 300, h: 50 },
-    { x: 900, y: 300, w: 200, h: 50 }, // The higher platform
-    { x: 1300, y: 350, w: 400, h: 50 }
+    { x: 0, y: groundLevel, w: levelWidth, h: 60 }
 ];
 
-const gravity = 0.5;
-const jumpForce = -10; 
-const speed = 1.7;
-const groundY = 350;
+const goal = { x: 1900, y: groundLevel - 30, size: 20 };
+
+// Ensure paths are correct relative to your index.html
+const caveBackgroundImg = new Image();
+caveBackgroundImg.src = 'art/backgrounds/cave/Cave Background.png';
+
+const caveMiddlegroundImg = new Image();
+caveMiddlegroundImg.src = 'art/backgrounds/cave/Cave Middleground.png';
+
+const caveForegroundImg = new Image();
+caveForegroundImg.src = 'art/backgrounds/cave/Cave Foreground.png';
+
+const caveForegroundImg2 = new Image();
+caveForegroundImg2.src = 'art/backgrounds/cave/Cave Foreground 2.png';
+
 
 const timeInAir = (Math.abs(jumpForce) * 2) / gravity;
 const maxJumpDistance = speed * timeInAir;

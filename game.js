@@ -1,39 +1,89 @@
-const goal = { x: 1800, y: 320, size: 20 }; // Move goal further right
-const levelWidth = 2000; // Define total level length
+goal.x = 1800; // Move goal further right
+goal.y = 320;
 
+function drawParallaxLayer(img, parallaxFactor) {
+    if (!img.complete || img.naturalWidth === 0 || img.naturalHeight === 0) return;
+
+    const drawHeight = canvas.height;
+    const drawWidth = (img.naturalWidth / img.naturalHeight) * drawHeight;
+    let startX = (-cameraX * parallaxFactor) % drawWidth;
+
+    if (startX > 0) startX -= drawWidth;
+
+    for (let x = startX; x < canvas.width; x += drawWidth) {
+        ctx.drawImage(img, x, 0, drawWidth, drawHeight);
+    }
+}
+
+function drawForegroundPlatforms() {
+    platforms.forEach(p => {
+        if (caveForegroundImg.complete && caveForegroundImg.naturalWidth > 0) {
+            ctx.drawImage(caveForegroundImg, p.x, p.y, p.w, p.h);
+        } else {
+            // If the image fails, use a "Rock" color so it's not black-on-black
+            ctx.fillStyle = '#555'; 
+            ctx.fillRect(p.x, p.y, p.w, p.h);
+        }
+    });
+}
+
+function drawForeground2() {
+    if (caveForegroundImg2.complete && caveForegroundImg2.naturalWidth > 0) {
+        // We draw it across the whole level or specific segments
+        // Using levelWidth ensures it covers the entire 2000px span
+        ctx.drawImage(caveForegroundImg2, 0, 0, levelWidth, canvas.height);
+    }
+}
+
+// --- In game.js ---
 function gameLoop() {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-    // 1. Calculate Camera Position
-    // This keeps the NPC centered but stops at the edges of the 2000px level
-    cameraX = npc.x - canvas.width / 2;
+    if (isLevelComplete) return;
+    
+    cameraX = npc.x - 200;
     if (cameraX < 0) cameraX = 0;
-    if (cameraX > levelWidth - canvas.width) cameraX = levelWidth - canvas.width;
 
-    // 2. Start Camera Translation
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+ 
+    // 1. BACK LAYERS (Static & Parallax)
+    ctx.fillStyle = '#1e1e1e';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    drawParallaxLayer(caveBackgroundImg, 0.2);
+    drawParallaxLayer(caveMiddlegroundImg, 0.5);
+ 
+    // 2. PARALLAX LAYERS
+    // Background layer (Moves very slowly)
+    drawParallaxLayer(caveBackgroundImg, 0.2);
+    // Middleground layer (Moves faster than background)
+    drawParallaxLayer(caveMiddlegroundImg, 0.5);
+
+ 
+    // 3. WORLD SPACE (Camera affects these)
     ctx.save();
     ctx.translate(-cameraX, 0);
-
-    // 3. Draw the World (Static Platforms)
-    // --- Inside your gameLoop() ---
-    ctx.fillStyle = '#888';
-    platforms.forEach(p => {
-        ctx.fillRect(p.x, p.y, p.w, p.h);
-    });
-    
+    // Draw the Goal
     ctx.fillStyle = 'red';
     ctx.fillRect(goal.x, goal.y, goal.size, goal.size);
 
-    // 4. Update and Draw NPC in "World Space"
     npc.update(goal.x);
-    npc.draw();
-    
-    // 5. End Camera Translation (Anything drawn after this is pinned to the screen)
-    ctx.restore();
+    npc.draw(); // NPC is now "behind" the next two layers
 
-    mouse.velX = 0;
-    mouse.velY = 0;
+    // --- WIN CONDITION CHECK ---
+    if (npc.x + npc.width > goal.x && 
+        npc.x < goal.x + goal.size &&
+        npc.y + npc.height > goal.y && 
+        npc.y < goal.y + goal.size) {
+        
+        isLevelComplete = true;
+        showWinScreen();
+    }
+
+    drawForegroundPlatforms();
+    
+    drawForeground2();
+
+    ctx.restore();
 
     requestAnimationFrame(gameLoop);
 }
+
 gameLoop();
