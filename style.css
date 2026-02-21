@@ -1,0 +1,2 @@
+canvas { border: 2px solid #333; background: #f0f0f0; }
+body { display: flex; flex-direction: column; align-items: center; font-family: sans-serif; }
