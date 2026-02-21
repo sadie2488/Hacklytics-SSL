@@ -1,15 +1,16 @@
 goal.x = 1800;
 goal.y = groundLevel - 92;
 
-// Level progression
+// Level progression (per-biome)
 let currentLevel = 1;
-let maxUnlockedLevel = 1;
+let maxUnlockedLevel = { cave: 1, forest: 1, mountain: 1 };
 
 // Win animation state
 let winGlow = 0;
 let winFade = 0;
 let winPhase = 'none'; // 'none' | 'glow' | 'fade' | 'done'
 
+// --- Standard parallax tiling (cave) ---
 function drawParallaxLayer(img, parallaxFactor) {
     if (!img.complete || img.naturalWidth === 0 || img.naturalHeight === 0) return;
 
@@ -24,24 +25,89 @@ function drawParallaxLayer(img, parallaxFactor) {
     }
 }
 
-function drawForegroundPlatforms() {
-    platforms.forEach(p => {
-        if (caveForegroundImg.complete && caveForegroundImg.naturalWidth > 0) {
-            ctx.drawImage(caveForegroundImg, p.x, p.y, p.w, p.h);
+// --- Forest: ping-pong mirror tiling for seamless blending ---
+function drawForestParallaxLayer(img, parallaxFactor) {
+    if (!img.complete || img.naturalWidth === 0 || img.naturalHeight === 0) return;
+
+    const dh = canvas.height;
+    const dw = (img.naturalWidth / img.naturalHeight) * dh;
+    let startX = (-cameraX * parallaxFactor) % dw;
+    if (startX > 0) startX -= dw;
+
+    // Figure out which tile index startX corresponds to
+    let tileNum = Math.round((-cameraX * parallaxFactor - startX) / dw);
+
+    for (let x = startX; x < canvas.width; x += dw) {
+        ctx.save();
+        if (tileNum % 2 === 1) {
+            // Mirror this tile so edges blend seamlessly
+            ctx.translate(x + dw, 0);
+            ctx.scale(-1, 1);
+            ctx.drawImage(img, 0, 0, dw, dh);
         } else {
-            ctx.fillStyle = '#555';
-            ctx.fillRect(p.x, p.y, p.w, p.h);
+            ctx.drawImage(img, x, 0, dw, dh);
         }
-    });
+        ctx.restore();
+        tileNum++;
+    }
 }
 
-function drawForeground2() {
-    if (caveForegroundImg2.complete && caveForegroundImg2.naturalWidth > 0) {
-        ctx.save();
-        ctx.globalAlpha = 0.65;
-        ctx.drawImage(caveForegroundImg2, 0, 0, levelWidth, canvas.height);
-        ctx.restore();
+// --- Mountain: section-based viewport per level ---
+function drawMountainLayer(img, parallaxFactor) {
+    if (!img.complete || img.naturalWidth === 0 || img.naturalHeight === 0) return;
+
+    const numLevels = 8;
+    const sectionSrcW = img.naturalWidth / numLevels;
+    const sectionSrcStart = (currentLevel - 1) * sectionSrcW;
+
+    // Scale section to screen, maintaining aspect ratio
+    const scale = canvas.height / img.naturalHeight;
+    const sectionDrawW = sectionSrcW * scale;
+
+    // Apply parallax scrolling within the section
+    const drawX = -cameraX * parallaxFactor;
+
+    ctx.drawImage(img,
+        sectionSrcStart, 0, sectionSrcW, img.naturalHeight,
+        drawX, 0, sectionDrawW, canvas.height
+    );
+}
+
+// --- Biome-aware parallax dispatcher ---
+function drawBiomeParallaxLayer(img, parallaxFactor) {
+    const biomeName = biomeList[currentBiomeIndex];
+    if (biomeName === 'mountain' || biomeName === 'forest') {
+        drawForestParallaxLayer(img, parallaxFactor);
+    } else {
+        drawParallaxLayer(img, parallaxFactor);
     }
+}
+
+// --- Foreground layer (behind player, world space) ---
+function drawForegroundLayer() {
+    const biome = getCurrentBiome();
+    const img = biome.foreground;
+    if (!img.complete || img.naturalWidth === 0) return;
+
+    // Extend past the door for a cleaner look on all biomes
+    ctx.drawImage(img, 0, 0, levelWidth + canvas.width, canvas.height);
+}
+
+// --- Foreground 2 overlay (in front of player, world space) ---
+function drawOverlayLayer() {
+    const biome = getCurrentBiome();
+    const img = biome.foreground2;
+    if (!img.complete || img.naturalWidth === 0) return;
+
+    ctx.save();
+    if (biomeList[currentBiomeIndex] === 'cave') {
+        ctx.globalAlpha = 0.40;
+        ctx.filter = 'brightness(0.7) saturate(0.5)';
+    } else {
+        ctx.globalAlpha = 0.65;
+    }
+    ctx.drawImage(img, 0, 0, levelWidth + canvas.width, canvas.height);
+    ctx.restore();
 }
 
 function showWinScreen() {
@@ -55,22 +121,50 @@ function showWinScreen() {
     winFade = 0;
 }
 
-function unlockNextLevel() {
-    if (currentLevel >= maxUnlockedLevel) {
-        maxUnlockedLevel = Math.min(currentLevel + 1, 8);
-    }
-    // Update button states in the DOM
+function updateLevelButtons() {
+    const biome = biomeList[currentBiomeIndex];
     document.querySelectorAll('.level-btn').forEach(function (btn) {
         const lvl = parseInt(btn.getAttribute('data-level'));
-        if (lvl <= maxUnlockedLevel) {
+        if (lvl <= maxUnlockedLevel[biome]) {
             btn.classList.remove('locked');
+        } else {
+            btn.classList.add('locked');
         }
     });
+}
+
+function unlockNextLevel() {
+    const biome = biomeList[currentBiomeIndex];
+    if (currentLevel >= maxUnlockedLevel[biome]) {
+        maxUnlockedLevel[biome] = Math.min(currentLevel + 1, 8);
+    }
+    updateLevelButtons();
+}
+
+function updateBiomeArrows() {
+    const leftBtn = document.getElementById('biome-left');
+    const rightBtn = document.getElementById('biome-right');
+    leftBtn.style.opacity = (currentBiomeIndex === 0) ? '0.2' : '1';
+    leftBtn.style.pointerEvents = (currentBiomeIndex === 0) ? 'none' : 'auto';
+    rightBtn.style.opacity = (currentBiomeIndex === biomeList.length - 1) ? '0.2' : '1';
+    rightBtn.style.pointerEvents = (currentBiomeIndex === biomeList.length - 1) ? 'none' : 'auto';
+}
+
+function switchBiome(delta) {
+    const newIndex = currentBiomeIndex + delta;
+    if (newIndex < 0 || newIndex >= biomeList.length) return;
+    currentBiomeIndex = newIndex;
+    const biome = biomeList[currentBiomeIndex];
+    document.getElementById('biome-name').textContent = '- ' + biomeNames[biome] + ' -';
+    document.getElementById('level-select').style.background = biomeMenuBgs[biome];
+    updateBiomeArrows();
+    updateLevelButtons();
 }
 
 function showLevelSelect() {
     unlockNextLevel();
     const ls = document.getElementById('level-select');
+    ls.style.background = biomeMenuBgs[biomeList[currentBiomeIndex]];
     ls.style.display = 'flex';
     ls.style.opacity = '0';
     requestAnimationFrame(function () {
@@ -92,7 +186,6 @@ function resetGame() {
     winGlow = 0;
     winFade = 0;
     npc.x = 50;
-    npc.y = 140;
     npc.velocityX = 0;
     npc.velocityY = 0;
     npc.stamina = 100;
@@ -100,6 +193,13 @@ function resetGame() {
     npc.onMouse = false;
     npc.state = 'SEEKING';
     cameraX = 0;
+
+    // Adjust ground level per biome so sprite sits on the terrain art
+    const biomeName = biomeList[currentBiomeIndex];
+    const biomeGroundOffset = (biomeName === 'mountain') ? 20 : (biomeName === 'cave') ? 40 : 0;
+    platforms[0].y = groundLevel + biomeGroundOffset;
+    goal.y = platforms[0].y - goal.height;
+    npc.y = platforms[0].y - npc.height;
 }
 
 // Level select button handlers
@@ -115,28 +215,34 @@ document.addEventListener('DOMContentLoaded', function () {
             }, 900);
         });
     });
+
+    // Biome navigation arrows
+    document.getElementById('biome-left').addEventListener('click', function () { switchBiome(-1); });
+    document.getElementById('biome-right').addEventListener('click', function () { switchBiome(1); });
+    updateBiomeArrows();
 });
 
 function gameLoop() {
     cameraX = npc.x - 200;
     if (cameraX < 0) cameraX = 0;
 
+    const biome = getCurrentBiome();
+    const biomeName = biomeList[currentBiomeIndex];
+
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    // 1. BACK LAYERS (Static & Parallax)
-    ctx.fillStyle = '#1e1e1e';
+    // 1. Background fill + parallax layers (screen space)
+    ctx.fillStyle = biomeFills[biomeName];
     ctx.fillRect(0, 0, canvas.width, canvas.height);
-    drawParallaxLayer(caveBackgroundImg, 0.2);
-    drawParallaxLayer(caveMiddlegroundImg, 0.5);
+    drawBiomeParallaxLayer(biome.background, 0.2);
+    drawBiomeParallaxLayer(biome.middleground, 0.5);
 
-    // 2. PARALLAX LAYERS
-    drawParallaxLayer(caveBackgroundImg, 0.2);
-    drawParallaxLayer(caveMiddlegroundImg, 0.5);
-
-
-    // 3. WORLD SPACE (Camera affects these)
+    // 2. WORLD SPACE (Camera affects these)
     ctx.save();
     ctx.translate(-cameraX, 0);
+
+    // 3. Foreground layer (behind player)
+    drawForegroundLayer();
 
     // Draw the Goal (exit door)
     if (exitDoorImg.complete && exitDoorImg.naturalWidth > 0) {
@@ -167,9 +273,8 @@ function gameLoop() {
     }
     npc.draw();
 
-    drawForegroundPlatforms();
-
-    drawForeground2();
+    // 4. Foreground 2 overlay (in front of player)
+    drawOverlayLayer();
 
     // --- WIN CONDITION CHECK ---
     if (!isLevelComplete &&

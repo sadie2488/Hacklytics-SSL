@@ -62,8 +62,37 @@ body {
     color: #6a6a8a;
     font-size: 13px;
     letter-spacing: 3px;
-    margin-bottom: 35px;
+    margin-bottom: 0;
     font-family: 'Cinzel Decorative', serif;
+}
+
+.biome-nav {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    margin-bottom: 35px;
+}
+
+.biome-arrow {
+    background: none;
+    border: 2px solid rgba(200, 200, 230, 0.4);
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+    color: #e8e0d0;
+    font-size: 18px;
+    cursor: pointer;
+    transition: all 0.25s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: sans-serif;
+}
+
+.biome-arrow:hover {
+    border-color: rgba(200, 200, 255, 0.8);
+    text-shadow: 0 0 10px rgba(200, 200, 255, 0.5);
+    transform: scale(1.1);
 }
 
 .level-grid {
