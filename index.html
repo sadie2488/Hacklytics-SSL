@@ -3,14 +3,30 @@
 <head>
     <title>Simple NPC Platformer AI</title>
     <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@400;700;900&display=swap" rel="stylesheet">
 </head>
 <body>
-    <h3>NPC AI: Red Square is the Goal | Blue is the NPC</h3>
+    <div id="start-screen">
+        <canvas id="fireCanvas" width="600" height="400"></canvas>
+    </div>
+    <div id="level-select" style="display:none;">
+        <h1>Select Level</h1>
+        <div class="subtitle">- CAVES -</div>
+        <div class="level-grid">
+            <button class="level-btn" data-level="1">1</button>
+            <button class="level-btn locked" data-level="2">2</button>
+            <button class="level-btn locked" data-level="3">3</button>
+            <button class="level-btn locked" data-level="4">4</button>
+            <button class="level-btn locked" data-level="5">5</button>
+            <button class="level-btn locked" data-level="6">6</button>
+            <button class="level-btn locked" data-level="7">7</button>
+            <button class="level-btn locked" data-level="8">8</button>
+        </div>
+    </div>
     <div class="game-container">
         <video id="webcam" autoplay playsinline></video>
         <canvas id="gameCanvas" width="600" height="400"></canvas>
     </div>
-    <p>The NPC will move toward the goal and stop at the ledge if it can't jump.</p>
 
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
@@ -19,7 +35,7 @@
 <script src="npc.js"></script>
 <script src="hand-tracking.js"></script>
 <script src="game.js"></script>
-
+<script src="start-screen.js"></script>
 
 </body>
 </html>

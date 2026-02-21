@@ -1,4 +1,5 @@
 let isLevelComplete = false;
+let gameStarted = false;
 
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
@@ -20,10 +21,13 @@ const platforms = [
     { x: 0, y: groundLevel, w: levelWidth, h: 60 }
 ];
 
-const goal = { x: 1900, y: groundLevel - 30, size: 20 };
+const goal = { x: 1900, y: groundLevel - 92, width: 80, height: 92 };
 
 // Ensure paths are correct relative to your index.html
 const cacheBust = '?v=' + Date.now();
+
+const exitDoorImg = new Image();
+exitDoorImg.src = 'assets/Exit door.png' + cacheBust;
 
 const caveBackgroundImg = new Image();
 caveBackgroundImg.src = 'art/backgrounds/cave/Cave Background.png' + cacheBust;

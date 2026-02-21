@@ -1,4 +1,109 @@
-body { display: flex; flex-direction: column; align-items: center; font-family: sans-serif; }
+body { display: flex; flex-direction: column; align-items: center; font-family: sans-serif; background: #000; }
+
+#start-screen {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: #000;
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: opacity 1s ease;
+}
+
+#start-screen.hidden {
+    opacity: 0;
+    pointer-events: none;
+}
+
+#fireCanvas {
+    position: static;
+    border: none;
+    background: transparent;
+}
+
+#level-select {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: radial-gradient(ellipse at center, #1a1a3a 0%, #0a0a18 60%, #050510 100%);
+    z-index: 900;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    transition: opacity 0.8s ease;
+    font-family: 'Cinzel Decorative', serif;
+}
+
+#level-select h1 {
+    color: #e8e0d0;
+    font-size: 36px;
+    margin-bottom: 10px;
+    letter-spacing: 6px;
+    text-transform: uppercase;
+    text-shadow: 0 0 20px rgba(200, 200, 255, 0.3), 0 0 40px rgba(150, 150, 200, 0.15);
+}
+
+#level-select .subtitle {
+    color: #6a6a8a;
+    font-size: 13px;
+    letter-spacing: 3px;
+    margin-bottom: 35px;
+    font-family: 'Cinzel Decorative', serif;
+}
+
+.level-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 90px);
+    gap: 18px;
+}
+
+.level-btn {
+    width: 90px;
+    height: 90px;
+    border: 2px solid rgba(200, 200, 230, 0.5);
+    border-radius: 6px;
+    background: rgba(20, 20, 50, 0.7);
+    color: #e8e0d0;
+    font-size: 32px;
+    font-family: 'Cinzel Decorative', serif;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.25s ease;
+    text-shadow: 0 0 8px rgba(200, 200, 255, 0.4);
+    box-shadow: 0 0 12px rgba(100, 100, 180, 0.15), inset 0 0 15px rgba(100, 100, 180, 0.08);
+}
+
+.level-btn:hover {
+    background: rgba(40, 40, 80, 0.8);
+    border-color: rgba(200, 200, 255, 0.8);
+    transform: scale(1.08);
+    box-shadow: 0 0 20px rgba(150, 150, 220, 0.35), inset 0 0 20px rgba(100, 100, 180, 0.15);
+    text-shadow: 0 0 15px rgba(200, 200, 255, 0.7);
+}
+
+.level-btn.locked {
+    border-color: rgba(60, 60, 80, 0.4);
+    background: rgba(10, 10, 20, 0.6);
+    color: #2a2a3a;
+    cursor: default;
+    text-shadow: none;
+    box-shadow: none;
+}
+
+.level-btn.locked:hover {
+    background: rgba(10, 10, 20, 0.6);
+    border-color: rgba(60, 60, 80, 0.4);
+    transform: none;
+    box-shadow: none;
+}
 
 .game-container {
     position: relative;
