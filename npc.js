@@ -1,9 +1,11 @@
 const npc = {
-    x: 50, y: 320,
-    width: 30, height: 30,
+    x: 50, y: 140,
+    width: 60, height: 60,
     velocityX: 0, velocityY: 0,
     isGrounded: false,
-    onMouse: false, 
+    onMouse: false,
+    // Maximum pixels the shadow can move the NPC per frame
+    maxShadowSpeed: 6,
     state: 'SEEKING',
 
     update(goalX) {
@@ -70,14 +72,54 @@ const npc = {
 
         // --- PHYSICS ---
         if (this.onMouse) {
-            // Instead of snapping to mouse.x (which is screen-based), 
-            // we use the processed mouse.x which already has cameraX added.
-            this.x = mouse.x + (mouse.width / 2) - (this.width / 2);
-            this.y = mouse.y - this.height;
+            // Smooth follow: lerp toward the smoothed mouse position to reduce jitter
+            const desiredX = mouse.x + (mouse.width / 2) - (this.width / 2);
+            const desiredY = mouse.y - this.height;
+            const followLerp = 0.42; // 0-1 where smaller is smoother/slower
+            const rawDelta = desiredX - this.x;
+            let deltaX = rawDelta * followLerp;
+            const maxMove = this.maxShadowSpeed || 6;
+            if (deltaX > maxMove) deltaX = maxMove;
+            if (deltaX < -maxMove) deltaX = -maxMove;
+            const newX = this.x + deltaX;
+            const newY = desiredY;
 
-            // Reset velocities so it doesn't build up 'ghost speed'
-            this.velocityX = 0;
-            this.velocityY = 0;
+            // Check for intersection with any platform at the new position
+            const collidedPlatform = platforms.find(p => {
+                const npcLeft = newX;
+                const npcRight = newX + this.width;
+                const npcTop = newY;
+                const npcBottom = newY + this.height;
+                const pLeft = p.x;
+                const pRight = p.x + p.w;
+                const pTop = p.y;
+                const pBottom = p.y + p.h;
+                // AABB overlap amounts
+                const overlapX = Math.min(npcRight, pRight) - Math.max(npcLeft, pLeft);
+                const overlapY = Math.min(npcBottom, pBottom) - Math.max(npcTop, pTop);
+                const minOverlap = 2; // ignore tiny overlaps that cause jitter
+                return (overlapX > minOverlap && overlapY > minOverlap);
+            });
+
+            if (collidedPlatform) {
+                // Slide the NPC off the shadow at the platform edge and drop
+                if (rawDelta > 0) {
+                    this.x = collidedPlatform.x - this.width - 0.5;
+                } else {
+                    this.x = collidedPlatform.x + collidedPlatform.w + 0.5;
+                }
+                this.onMouse = false;
+                this.isGrounded = false;
+                this.velocityY = 1; // start falling
+                // give a small horizontal push based on hand movement, capped
+                const handVel = mouse.velX || 0;
+                this.velocityX = Math.max(-maxMove, Math.min(maxMove, handVel));
+            } else {
+                this.x = newX;
+                this.y = newY;
+                this.velocityX = 0;
+                this.velocityY = 0;
+            }
         }
 
         this.x += this.velocityX;
@@ -129,7 +171,7 @@ const npc = {
         // Fall protection: Reset if the NPC falls off the bottom
         if (this.y > canvas.height + 100) {
             this.x = 50; 
-            this.y = 320;
+            this.y = 140;
             this.velocityX = 0;
             this.velocityY = 0;
             this.onMouse = false;
@@ -164,10 +206,14 @@ const npc = {
     },
 
     draw() {
-        // Green means the platform is locked and the NPC is ready to leap!
-        ctx.fillStyle = (this.onMouse && mouse.isLocked) ? '#2ecc71' : 
-                        (this.state === 'JUMPING' ? 'orange' : 'royalblue');
-        ctx.fillRect(this.x, this.y, this.width, this.height);
+        // Draw sprite if available, otherwise fallback to colored rectangle
+        if (this.spriteLoaded && this.sprite) {
+            ctx.drawImage(this.sprite, this.x, this.y, this.width, this.height);
+        } else {
+            ctx.fillStyle = (this.onMouse && mouse.isLocked) ? '#2ecc71' : 
+                            (this.state === 'JUMPING' ? 'orange' : 'royalblue');
+            ctx.fillRect(this.x, this.y, this.width, this.height);
+        }
         
         // Only show the jump trajectory if the NPC is on the mouse and it's locked
         if (this.state === 'WAITING' || (this.onMouse && mouse.isLocked)) {
@@ -181,3 +227,9 @@ const npc = {
         }
     }
 };
+
+// Load a PNG sprite for the NPC. Place `player.png` inside the `assets/` folder.
+npc.sprite = new Image();
+npc.spriteLoaded = false;
+npc.sprite.src = 'assets/player.png';
+npc.sprite.onload = () => { npc.spriteLoaded = true; };
