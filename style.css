@@ -1,4 +1,16 @@
-body { display: flex; flex-direction: column; align-items: center; font-family: sans-serif; background: #000; }
+body {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    font-family: sans-serif;
+    background: #000;
+    margin: 0;
+    padding: 0;
+    width: 100vw;
+    height: 100vh;
+    overflow: hidden;
+}
 
 #start-screen {
     position: fixed;
@@ -20,11 +32,6 @@ body { display: flex; flex-direction: column; align-items: center; font-family: 
     pointer-events: none;
 }
 
-#fireCanvas {
-    position: static;
-    border: none;
-    background: transparent;
-}
 
 #level-select {
     position: fixed;
@@ -107,27 +114,39 @@ body { display: flex; flex-direction: column; align-items: center; font-family: 
 
 .game-container {
     position: relative;
-    width: 600px;
-    height: 400px;
-    overflow: hidden; /* Hide the platforms that aren't on screen */
+    width: 100vw;
+    height: 100vh;
+    max-width: calc(100vh * 1.5); /* maintain 3:2 aspect ratio */
+    max-height: calc(100vw / 1.5);
+    overflow: hidden;
 }
 
 #webcam {
     position: absolute;
-    top: 10px;
-    left: 10px;
-    width: 120px;
+    top: 2.5%;
+    left: 1.5%;
+    width: 20%;
     height: auto;
     border: 2px solid white;
     border-radius: 8px;
-    z-index: 100; /* Stays above the scrolling level */
+    z-index: 100;
     transform: scaleX(-1);
 }
 
-canvas {
+canvas#gameCanvas {
     position: absolute;
     top: 0;
     left: 0;
-    border: 2px solid #333;
+    width: 100%;
+    height: 100%;
+    border: none;
     background: #111;
+}
+
+#fireCanvas {
+    position: static;
+    max-width: 100%;
+    max-height: 100%;
+    border: none;
+    background: transparent;
 }

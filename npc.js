@@ -172,11 +172,11 @@ const npc = {
 
         // Check collision with ALL foreground platforms
         platforms.forEach(p => {
-            if (this.velocityY >= 0 && 
-                this.x + this.width > p.x && 
+            if (this.velocityY >= 0 &&
+                this.x + this.width > p.x &&
                 this.x < p.x + p.w &&
-                this.y + this.height >= p.y && 
-                this.y + this.height <= p.y + 15) { // 15px "catch" zone
+                this.y + this.height >= p.y &&
+                prevY + this.height <= p.y) { // swept collision: feet crossed platform top
                 
                 this.y = p.y - this.height;
                 this.velocityY = 0;
