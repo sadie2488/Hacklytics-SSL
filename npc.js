@@ -1,11 +1,12 @@
 const npc = {
     x: 50, y: 140,
-    width: 60, height: 60,
+    width: 82, height: 100,
     velocityX: 0, velocityY: 0,
+    stamina: 100,
     isGrounded: false,
     onMouse: false,
     // Maximum pixels the shadow can move the NPC per frame
-    maxShadowSpeed: 6,
+    maxShadowSpeed: 14,
     state: 'SEEKING',
 
     update(goalX) {
@@ -13,33 +14,47 @@ const npc = {
     const prevY = this.y;
 
     // Remove the hardcoded gapStart/gapEnd variables. 
-    // Instead, let's look at the actual horizontal distance to the mouse.
     let distToMouse = mouse.x - this.x;
     
-    // The NPC is "ready" if the platform is locked and can reach the goal area
-    // We check if the goal is to the right of the current platform
     let canReachFinal = (goalX > this.x) && (Math.abs(goalX - this.x) < 1000); 
 
-    let readyToLeapFromMouse = this.onMouse && mouse.isLocked;            
-    let readyToJumpToMouse = this.state === 'WAITING' && mouse.active && 
-                             Math.abs(distToMouse) < maxJumpDistance && mouse.x > this.x;
+    let readyToLeapFromMouse = this.onMouse && mouse.isLocked;
+    if (readyToLeapFromMouse) {
+        // Apply jump force
+        this.velocityY = jumpForce; 
+        
+        // Give a forward boost based on current speed + a little extra "leap" momentum
+        this.velocityX = speed * 1.2; 
+        
+        // Change state and break the "onMouse" attachment
+        this.onMouse = false;
+        this.isGrounded = false;
+        this.state = 'JUMPING';
+    }
 
-    // --- STATE MACHINE ---
+    // Inside npc.update(goalX)
     if (this.onMouse) {
-        if (readyToLeapFromMouse) {
-            this.state = 'JUMPING';
-            this.velocityY = jumpForce;
-            // Give the NPC a "boost" proportional to your goal direction
-            this.velocityX = speed * 1.2;
+        this.stamina -= staminaDepleteRate;
+
+        if (this.stamina <= 0) {
+            this.stamina = 0;
             this.onMouse = false;
-            this.isGrounded = false;
+            mouse.active = false; // Effectively "hides" the platform
+            this.velocityY = 2;   // Start the fall
+        }
+    } else {
+        // Regenerate stamina only when safely on a ground platform
+        if (this.isGrounded) {
+            this.stamina = Math.min(maxStamina, this.stamina + staminaRegenRate);
         }
     }
-    // ... rest of your state logic
-            
-            // --- Inside npc.update(goalX) ---
-        // --- Inside the SEEKING state logic in npc.js ---
-        if (this.state === 'SEEKING') {
+
+    // Death Logic: If the NPC falls below the screen
+    if (this.y > canvas.height + 100) {
+        this.reset();
+    }
+
+    if (this.state === 'SEEKING') {
         // Walk toward the goal
         let direction = (goalX > this.x) ? 1 : -1;
         let nextX = this.x + (direction * speed);
@@ -72,16 +87,23 @@ const npc = {
 
         // --- PHYSICS ---
         if (this.onMouse) {
-            // Smooth follow: lerp toward the smoothed mouse position to reduce jitter
             const desiredX = mouse.x + (mouse.width / 2) - (this.width / 2);
             const desiredY = mouse.y - this.height;
-            const followLerp = 0.42; // 0-1 where smaller is smoother/slower
             const rawDelta = desiredX - this.x;
-            let deltaX = rawDelta * followLerp;
-            const maxMove = this.maxShadowSpeed || 6;
-            if (deltaX > maxMove) deltaX = maxMove;
-            if (deltaX < -maxMove) deltaX = -maxMove;
-            const newX = this.x + deltaX;
+            const distToPlat = Math.abs(rawDelta);
+            const maxMove = this.maxShadowSpeed;
+
+            // If the hand moved too far away, snap directly to it instead of lerping
+            let newX;
+            if (distToPlat > maxMove * 3) {
+                newX = desiredX;
+            } else {
+                const followLerp = 0.75;
+                let deltaX = rawDelta * followLerp;
+                if (deltaX > maxMove) deltaX = maxMove;
+                if (deltaX < -maxMove) deltaX = -maxMove;
+                newX = this.x + deltaX;
+            }
             const newY = desiredY;
 
             // Check for intersection with any platform at the new position
@@ -94,15 +116,13 @@ const npc = {
                 const pRight = p.x + p.w;
                 const pTop = p.y;
                 const pBottom = p.y + p.h;
-                // AABB overlap amounts
                 const overlapX = Math.min(npcRight, pRight) - Math.max(npcLeft, pLeft);
                 const overlapY = Math.min(npcBottom, pBottom) - Math.max(npcTop, pTop);
-                const minOverlap = 2; // ignore tiny overlaps that cause jitter
+                const minOverlap = 4;
                 return (overlapX > minOverlap && overlapY > minOverlap);
             });
 
             if (collidedPlatform) {
-                // Slide the NPC off the shadow at the platform edge and drop
                 if (rawDelta > 0) {
                     this.x = collidedPlatform.x - this.width - 0.5;
                 } else {
@@ -110,8 +130,7 @@ const npc = {
                 }
                 this.onMouse = false;
                 this.isGrounded = false;
-                this.velocityY = 1; // start falling
-                // give a small horizontal push based on hand movement, capped
+                this.velocityY = 1;
                 const handVel = mouse.velX || 0;
                 this.velocityX = Math.max(-maxMove, Math.min(maxMove, handVel));
             } else {
@@ -180,6 +199,8 @@ const npc = {
         }
     },
 
+
+
     drawJumpArc() {
         ctx.save();
         ctx.beginPath();
@@ -222,7 +243,29 @@ const npc = {
         
         if (mouse.active) {
             // Platform turns dark when locked
-            ctx.fillStyle = mouse.isLocked ? '#34495e' : 'rgba(0, 0, 0, 0.1)';
+            ctx.fillStyle = mouse.isLocked ? '#0a0a1a' : 'rgba(0, 0, 0, 0.1)';
+            ctx.fillRect(mouse.x, mouse.y, mouse.width, mouse.height);
+        }
+
+        // --- Inside npc.draw() ---
+        if (this.stamina < maxStamina) {
+            const barWidth = this.width;
+            const barHeight = 8;
+            const healthPercent = this.stamina / maxStamina;
+
+            // Background of the bar
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+            ctx.fillRect(this.x, this.y - 15, barWidth, barHeight);
+
+            // Stamina color (green to red)
+            ctx.fillStyle = healthPercent > 0.3 ? '#2ecc71' : '#e74c3c';
+            ctx.fillRect(this.x, this.y - 15, barWidth * healthPercent, barHeight);
+        }
+
+        // Inside npc.draw()
+        if (mouse.active && this.stamina > 0) {
+            // Only draw the platform if there is stamina left
+            ctx.fillStyle = mouse.isLocked ? '#0a0a1a' : 'rgba(255, 255, 255, 0.2)';
             ctx.fillRect(mouse.x, mouse.y, mouse.width, mouse.height);
         }
     }

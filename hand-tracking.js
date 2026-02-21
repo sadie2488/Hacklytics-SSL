@@ -2,12 +2,24 @@ function onResults(results) {
     if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
         const hand = results.multiHandLandmarks[0];
         const wrist = hand[0];
+        const knuckle = hand[5];
         const indexTip = hand[8];
         const indexKnuckle = hand[5];
-        const knuckle = hand[9];
 
-        // Robust fist detection: Tip is "lower" (higher Y) than the knuckle
-        mouse.isLocked = indexTip.y > indexKnuckle.y;
+        // Fist Detection: Tip is "lower" (higher Y value) than the knuckle
+        const isFist = indexTip.y > indexKnuckle.y;
+        
+        // Solidify platform when fist is closed
+        mouse.isLocked = isFist;
+        
+        // Only allow the hand to be "active" if the NPC has some stamina
+        if (npc.stamina > 10) { 
+            mouse.active = true;
+            
+        } else {
+            mouse.active = false;
+        }
+
 
         // --- Inside your onResults function ---
         if (!mouse.isLocked) {
