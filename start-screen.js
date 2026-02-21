@@ -114,7 +114,7 @@
 
         // Load and fade in the NPC sprite
         const spriteImg = new Image();
-        spriteImg.src = 'assets/player.png';
+        spriteImg.src = 'Assets/Sprite/player.png';
 
         function fadeInSprite() {
             let spriteOpacity = 0;

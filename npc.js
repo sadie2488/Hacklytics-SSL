@@ -8,6 +8,11 @@ const npc = {
     // Maximum pixels the shadow can move the NPC per frame
     maxShadowSpeed: 14,
     state: 'SEEKING',
+    // Running animation state
+    facingRight: true,
+    animFrame: 0,
+    animTimer: 0,
+    animSpeed: 5, // frames between animation switches
 
     update(goalX) {
     let distanceToGoal = goalX - this.x;
@@ -57,20 +62,29 @@ const npc = {
     if (this.state === 'SEEKING') {
         // Walk toward the goal
         let direction = (goalX > this.x) ? 1 : -1;
+        this.facingRight = direction === 1;
         let nextX = this.x + (direction * speed);
 
-        // Only move if there is ground, but ignore ledge detection 
+        // Only move if there is ground, but ignore ledge detection
         // if we are very close to the goal (to allow the "win" touch)
-        let hasGroundAhead = platforms.some(p => 
-            nextX + this.width/2 > p.x && 
+        let hasGroundAhead = platforms.some(p =>
+            nextX + this.width/2 > p.x &&
             nextX + this.width/2 < p.x + p.w &&
             Math.abs((this.y + this.height) - p.y) < 10
         );
 
         if (hasGroundAhead || Math.abs(goalX - this.x) < 20) {
             this.x = nextX;
+            // Advance running animation
+            this.animTimer++;
+            if (this.animTimer >= this.animSpeed) {
+                this.animTimer = 0;
+                this.animFrame = (this.animFrame + 1) % 3;
+            }
         } else {
             this.state = 'WAITING';
+            this.animFrame = 0;
+            this.animTimer = 0;
         }
     }
         
@@ -227,11 +241,43 @@ const npc = {
     },
 
     draw() {
-        // Draw sprite if available, otherwise fallback to colored rectangle
-        if (this.spriteLoaded && this.sprite) {
+        // Determine if we should use the running animation
+        const isRunning = this.state === 'SEEKING' && this.isGrounded && !this.onMouse
+            && this.runFramesLoaded === 3;
+
+        // Determine if we should use the jumping animation
+        const isJumping = !this.isGrounded && !this.onMouse && this.jumpFramesLoaded === 2;
+
+        if (isJumping) {
+            // Jump 1 while rising, Jump 2 while falling
+            const frame = this.velocityY < 0 ? this.jumpFrames[0] : this.jumpFrames[1];
+            ctx.save();
+            if (!this.facingRight) {
+                ctx.translate(this.x + this.width, this.y);
+                ctx.scale(-1, 1);
+                ctx.drawImage(frame, 0, 0, this.width, this.height);
+            } else {
+                ctx.drawImage(frame, this.x, this.y, this.width, this.height);
+            }
+            ctx.restore();
+        } else if (isRunning) {
+            const frame = this.runFrames[this.animFrame];
+            // Bob up and down: middle frame is raised, first and last are grounded
+            const bobOffsets = [0, -3, -1];
+            const drawY = this.y + bobOffsets[this.animFrame];
+            ctx.save();
+            if (!this.facingRight) {
+                ctx.translate(this.x + this.width, drawY);
+                ctx.scale(-1, 1);
+                ctx.drawImage(frame, 0, 0, this.width, this.height);
+            } else {
+                ctx.drawImage(frame, this.x, drawY, this.width, this.height);
+            }
+            ctx.restore();
+        } else if (this.spriteLoaded && this.sprite) {
             ctx.drawImage(this.sprite, this.x, this.y, this.width, this.height);
         } else {
-            ctx.fillStyle = (this.onMouse && mouse.isLocked) ? '#2ecc71' : 
+            ctx.fillStyle = (this.onMouse && mouse.isLocked) ? '#2ecc71' :
                             (this.state === 'JUMPING' ? 'orange' : 'royalblue');
             ctx.fillRect(this.x, this.y, this.width, this.height);
         }
@@ -274,5 +320,25 @@ const npc = {
 // Load a PNG sprite for the NPC. Place `player.png` inside the `assets/` folder.
 npc.sprite = new Image();
 npc.spriteLoaded = false;
-npc.sprite.src = 'assets/player.png';
+npc.sprite.src = 'Assets/Sprite/player.png';
 npc.sprite.onload = () => { npc.spriteLoaded = true; };
+
+// Load running animation frames
+npc.runFrames = [];
+npc.runFramesLoaded = 0;
+for (let i = 1; i <= 3; i++) {
+    const img = new Image();
+    img.src = 'Assets/Sprite/Running/Run ' + i + '.png';
+    img.onload = () => { npc.runFramesLoaded++; };
+    npc.runFrames.push(img);
+}
+
+// Load jumping animation frames
+npc.jumpFrames = [];
+npc.jumpFramesLoaded = 0;
+for (let i = 1; i <= 2; i++) {
+    const img = new Image();
+    img.src = 'Assets/Sprite/Jumping/Jump ' + i + '.png';
+    img.onload = () => { npc.jumpFramesLoaded++; };
+    npc.jumpFrames.push(img);
+}

@@ -31,15 +31,18 @@ function drawForestParallaxLayer(img, parallaxFactor) {
 
     const dh = canvas.height;
     const dw = (img.naturalWidth / img.naturalHeight) * dh;
-    let startX = (-cameraX * parallaxFactor) % dw;
-    if (startX > 0) startX -= dw;
 
-    // Figure out which tile index startX corresponds to
-    let tileNum = Math.round((-cameraX * parallaxFactor - startX) / dw);
+    // How far the layer has scrolled (positive value)
+    const offset = cameraX * parallaxFactor;
+    // Which tile sits at the left edge of the screen
+    const firstTile = Math.floor(offset / dw);
+    // How far into that tile the screen starts
+    const startX = -(offset - firstTile * dw);
 
+    let tileIndex = firstTile;
     for (let x = startX; x < canvas.width; x += dw) {
         ctx.save();
-        if (tileNum % 2 === 1) {
+        if (tileIndex % 2 === 1) {
             // Mirror this tile so edges blend seamlessly
             ctx.translate(x + dw, 0);
             ctx.scale(-1, 1);
@@ -48,7 +51,7 @@ function drawForestParallaxLayer(img, parallaxFactor) {
             ctx.drawImage(img, x, 0, dw, dh);
         }
         ctx.restore();
-        tileNum++;
+        tileIndex++;
     }
 }
 
@@ -101,8 +104,11 @@ function drawOverlayLayer() {
 
     ctx.save();
     if (biomeList[currentBiomeIndex] === 'cave') {
-        ctx.globalAlpha = 0.40;
+        ctx.globalAlpha = 0.55;
         ctx.filter = 'brightness(0.7) saturate(0.5)';
+    } else if (biomeList[currentBiomeIndex] === 'forest') {
+        ctx.globalAlpha = 0.55;
+        ctx.filter = 'brightness(0.5)';
     } else {
         ctx.globalAlpha = 0.65;
     }
@@ -192,6 +198,9 @@ function resetGame() {
     npc.isGrounded = false;
     npc.onMouse = false;
     npc.state = 'SEEKING';
+    npc.animFrame = 0;
+    npc.animTimer = 0;
+    npc.facingRight = true;
     cameraX = 0;
 
     // Adjust ground level per biome so sprite sits on the terrain art
