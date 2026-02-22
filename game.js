@@ -256,7 +256,7 @@ function resetGame() {
     npc.velocityX = 0;
     npc.velocityY = 0;
     npc.stamina = 100;
-    npc.isGrounded = false;
+    npc.isGrounded = true;
     npc.onMouse = false;
     npc.state = 'IDLE';
     npc.waitTimer = 90; // ~1.5 seconds at 60fps before NPC starts running
@@ -444,6 +444,10 @@ function gameLoop(timestamp) {
     mouse.lastX = mouse.x;
     mouse.lastY = mouse.y;
     mouse.x = mouse.screenX + cameraX;
+    // Clamp shadow platform so it cannot go below the ground surface
+    const biomeName_loop = biomeList[currentBiomeIndex];
+    const groundSurface = groundLevel + ((biomeName_loop === 'mountain' || biomeName_loop === 'cave') ? 20 : 0);
+    if (mouse.screenY > groundSurface) mouse.screenY = groundSurface;
     mouse.y = mouse.screenY;
     mouse.velX = mouse.x - mouse.lastX;
     mouse.velY = mouse.y - mouse.lastY;

@@ -132,8 +132,6 @@ const npc = {
                 this.velocityY = 2;
                 narrator.trigger("The NPC ran out of stamina and fell.");
             }
-        } else if (this.isGrounded) {
-            this.stamina = Math.min(maxStamina, this.stamina + staminaRegenRate);
         }
     }
 
@@ -249,7 +247,8 @@ const npc = {
             this.velocityY += gravity * dt;
         }
 
-        // Update position
+        // Update position (save previous Y for landing detection)
+        const prevY = this.y;
         this.x += this.velocityX * dt;
         this.y += this.velocityY * dt;
 
@@ -288,6 +287,7 @@ const npc = {
         // Check collision with ALL foreground platforms (skip while carried on hand)
         if (!this.onMouse) {
             platforms.forEach(p => {
+                if (this.isGrounded) return; // already landed on an earlier platform
                 if (this.velocityY >= 0 &&
                     this.x + this.width > p.x &&
                     this.x < p.x + p.w &&
@@ -303,6 +303,27 @@ const npc = {
                     }
                 }
             });
+
+            // Depenetration: if NPC ended up inside a platform (e.g. hand pushed it
+            // through the surface), snap to the top so it doesn't fall through
+            if (!this.isGrounded && this.velocityY >= 0) {
+                for (let i = 0; i < platforms.length; i++) {
+                    const p = platforms[i];
+                    if (this.x + this.width > p.x &&
+                        this.x < p.x + p.w &&
+                        this.y + this.height > p.y &&
+                        this.y + this.height < p.y + p.h) {
+                        this.y = p.y - this.height;
+                        this.velocityY = 0;
+                        this.isGrounded = true;
+                        if (this.state === 'JUMPING' || this.state === 'WAITING') {
+                            this.state = 'SEEKING';
+                            this.velocityX = 0;
+                        }
+                        break;
+                    }
+                }
+            }
         }
 
         // --- DANGER BLOCK COLLISION (narrower hitbox) ---
@@ -319,26 +340,6 @@ const npc = {
             }
         }
 
-        // Death Logic
-        if (this.y > canvas.height + 100) {
-            if (!this.hasFallen) {
-                narrator.trigger("Back to the start for you.");
-                this.hasFallen = true;
-            }
-            this.reset();
-        }
-    },
-
-    reset() {
-        this.x = 50; 
-        this.y = 140;
-        this.velocityX = 0;
-        this.velocityY = 0;
-        this.stamina = 100;
-        this.onMouse = false;
-        this.isGrounded = true;
-        this.state = 'SEEKING';
-        setTimeout(() => { this.hasFallen = false; }, 2000);
     },
 
     drawJumpArc() {
@@ -412,14 +413,10 @@ const npc = {
             this.drawJumpArc();
         }
 
-        if (mouse.active) {
-            // Platform turns dark when locked
-            ctx.fillStyle = mouse.isLocked ? '#0a0a1a' : 'rgba(0, 0, 0, 0.1)';
-            ctx.fillRect(mx, my, mouse.width, mouse.height);
-        }
-
         // Stamina bar
         if (this.stamina < maxStamina) {
+            const barWidth = this.width;
+            const barHeight = 6;
             const healthPercent = this.stamina / maxStamina;
             ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
             ctx.fillRect(dx, dy - 15, barWidth, barHeight);
