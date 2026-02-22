@@ -6,9 +6,9 @@ class Narrator {
         this.cooldown = 10000; // Minimum 3 seconds between new generations
         
         // You can hardcode these for testing, or set them via the UI inputs I added to index.html
-        this.geminiKey = 'AIzaSyCfZtMo2avdqaeSAXFrk6s20DnL3Kj5mLU'; 
+        this.geminiKey = 'AIzaSyCyFPEPWOxOPRKia7Jks6LcO9pIY6UwQN4'; 
         this.elevenLabsKey = 'sk_179d6c3ca441c796723bdc3dd4ed1cf656dbdc8e5cd4749c';
-        this.voiceId = '21m00Tcm4TlvDq8ikWAM'; // "Rachel" voice ID (default)
+        this.voiceId = 'jfIS2w2yJi0grJZPyEsk'; // "Rachel" voice ID (default)
     }
 
     setKeys(gemini, eleven) {
@@ -44,7 +44,7 @@ class Narrator {
             You are the narrator of a platformer game where a giant hand helps a tiny NPC.
             The current event is: "${context}".
             Write a SINGLE, witty, sarcastic, or encouraging sentence (max 10 words) reacting to this. 
-            Do not use hashtags or emojis.
+            Do not use hashtags, asterisks,, exclamation marks, or emojis.
         `;
 
         // Corrected URL format
@@ -80,7 +80,7 @@ class Narrator {
 
         // Double check that this.elevenLabsKey doesn't have accidental spaces
         const cleanKey = this.elevenLabsKey.trim();
-        const voiceId = '21m00Tcm4TlvDq8ikWAM'; 
+        const voiceId = 'jfIS2w2yJi0grJZPyEsk'; 
         const url = `https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`;
 
         const response = await fetch(url, {
