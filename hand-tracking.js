@@ -23,19 +23,17 @@ function onResults(results) {
 
         // --- Inside your onResults function ---
         if (!mouse.isLocked) {
-            const targetX = (1 - ((wrist.x + knuckle.x) / 2)) * canvas.width;
-            const targetY = ((wrist.y + knuckle.y) / 2) * canvas.height;
+            // Sensitivity > 1 means less physical hand movement covers more screen
+            const sensitivity = 1.5;
+            const handX = 1 - ((wrist.x + knuckle.x) / 2);
+            const handY = (wrist.y + knuckle.y) / 2;
+            const targetX = (0.5 + (handX - 0.5) * sensitivity) * canvas.width;
+            const targetY = (0.5 + (handY - 0.5) * sensitivity) * canvas.height;
 
-            mouse.lastX = mouse.x;
-            mouse.lastY = mouse.y;
-            
-            const smoothing = 0.1;
-            // Add cameraX so the platform stays with your physical hand position
-            mouse.x += (targetX + cameraX - (mouse.width / 2) - mouse.x) * smoothing;
-            mouse.y += (targetY - mouse.y) * smoothing;
-
-            mouse.velX = mouse.x - mouse.lastX;
-            mouse.velY = mouse.y - mouse.lastY;
+            const smoothing = 0.5;
+            // Store screen-space position (no cameraX here — converted to world-space in game loop)
+            mouse.screenX += (targetX - (mouse.width / 2) - mouse.screenX) * smoothing;
+            mouse.screenY += (targetY - mouse.screenY) * smoothing;
         } 
         // We don't need to force stillTimer here anymore because 
         // we are going to use isLocked directly in the NPC logic
@@ -52,9 +50,9 @@ const hands = new Hands({
 
 hands.setOptions({
     maxNumHands: 1,
-    modelComplexity: 1,
+    modelComplexity: 0,          // lite model — much faster, minimal quality loss
     minDetectionConfidence: 0.5,
-    minTrackingConfidence: 0.5
+    minTrackingConfidence: 0.4    // slightly lower to reduce re-detection stalls
 });
 
 hands.onResults(onResults);
@@ -63,7 +61,7 @@ const camera = new Camera(videoElement, {
     onFrame: async () => {
         await hands.send({image: videoElement});
     },
-    width: 640,
-    height: 480
+    width: 320,
+    height: 240
 });
 camera.start();

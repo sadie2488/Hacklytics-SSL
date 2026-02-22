@@ -3,6 +3,7 @@
 <head>
     <title>Simple NPC Platformer AI</title>
     <link rel="stylesheet" href="style.css">
+<<<<<<< HEAD
     <style>
         #api-controls {
             margin-bottom: 10px;
@@ -19,11 +20,41 @@
 <body>
     <h3>NPC AI: Red Square is the Goal | Blue is the NPC</h3>
 
+=======
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@400;700;900&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div id="start-screen">
+        <canvas id="fireCanvas" width="600" height="400"></canvas>
+    </div>
+    <div id="level-select" style="display:none;">
+        <h1>Select Level</h1>
+        <div class="biome-nav">
+            <button class="biome-arrow" id="biome-left">&#9664;</button>
+            <div class="subtitle" id="biome-name">- CAVES -</div>
+            <button class="biome-arrow" id="biome-right">&#9654;</button>
+        </div>
+        <div class="level-grid">
+            <button class="level-btn" data-level="1">1<span class="tutorial-label">Tutorial</span></button>
+            <button class="level-btn locked" data-level="2">2</button>
+            <button class="level-btn locked" data-level="3">3</button>
+            <button class="level-btn locked" data-level="4">4</button>
+        </div>
+        <button id="dev-unlock-btn">DEV</button>
+    </div>
+>>>>>>> 370ce4086daa35c243cf25da511027c944572bdc
     <div class="game-container">
         <video id="webcam" autoplay playsinline></video>
         <canvas id="gameCanvas" width="600" height="400"></canvas>
+        <button id="pause-btn">&#10074;&#10074;</button>
+        <div id="pause-menu" style="display:none;">
+            <div class="pause-content">
+                <h2>Paused</h2>
+                <button class="pause-option" id="resume-btn">Resume</button>
+                <button class="pause-option" id="menu-btn">Return to Menu</button>
+            </div>
+        </div>
     </div>
-    <p>The NPC will move toward the goal and stop at the ledge if it can't jump.</p>
 
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
@@ -32,10 +63,14 @@
 <script src="npc.js"></script>
 <script src="hand-tracking.js"></script>
 <script src="game.js"></script>
+<<<<<<< HEAD
 
 <script>
     // Helper to start the narrator
 </script>
+=======
+<script src="start-screen.js"></script>
+>>>>>>> 370ce4086daa35c243cf25da511027c944572bdc
 
 </body>
 </html>
