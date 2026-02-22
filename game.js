@@ -411,6 +411,7 @@ function drawLevelBlocks() {
     const biomeName = biomeList[currentBiomeIndex];
     const biomeGroundOffset = (biomeName === 'mountain') ? 20 : (biomeName === 'cave') ? 20 : 0;
     const platY = groundLevel + biomeGroundOffset;
+
     // Draw elevated platforms (non-ground-level)
     platforms.forEach(p => {
         if (p.y !== platY) {

@@ -297,6 +297,8 @@ const npc = {
                     this.y = p.y - this.height;
                     this.velocityY = 0;
                     this.isGrounded = true;
+                    this.fallAnimFrame = 0;
+                    this.fallAnimTimer = 0;
                     if (this.state === 'JUMPING' || this.state === 'WAITING') {
                         this.state = 'SEEKING';
                         this.velocityX = 0;
@@ -316,6 +318,8 @@ const npc = {
                         this.y = p.y - this.height;
                         this.velocityY = 0;
                         this.isGrounded = true;
+                        this.fallAnimFrame = 0;
+                        this.fallAnimTimer = 0;
                         if (this.state === 'JUMPING' || this.state === 'WAITING') {
                             this.state = 'SEEKING';
                             this.velocityX = 0;
@@ -371,12 +375,34 @@ const npc = {
         const isRunning = this.state === 'SEEKING' && this.isGrounded && !this.onMouse
             && this.runFramesLoaded === 3;
 
-        // Determine if we should use the jumping animation
-        const isJumping = !this.isGrounded && !this.onMouse && this.jumpFramesLoaded === 2;
+        // Determine if we should use the jumping animation (rising only)
+        const isJumping = !this.isGrounded && !this.onMouse && this.velocityY < 0
+            && this.jumpFramesLoaded === 2;
 
-        if (isJumping) {
-            // Jump 1 while rising, Jump 2 while falling
-            const frame = this.velocityY < 0 ? this.jumpFrames[0] : this.jumpFrames[1];
+        // Determine if we should use the falling animation (descending)
+        const isFalling = !this.isGrounded && !this.onMouse && this.velocityY >= 0
+            && this.fallFramesLoaded === 2;
+
+        if (isFalling) {
+            // Cycle between Fall 1 and Fall 2
+            this.fallAnimTimer += dt;
+            if (this.fallAnimTimer >= this.fallAnimSpeed) {
+                this.fallAnimTimer = 0;
+                this.fallAnimFrame = (this.fallAnimFrame + 1) % 2;
+            }
+            const frame = this.fallFrames[this.fallAnimFrame];
+            ctx.save();
+            if (!this.facingRight) {
+                ctx.translate(dx + this.width, dy);
+                ctx.scale(-1, 1);
+                ctx.drawImage(frame, 0, 0, this.width, this.height);
+            } else {
+                ctx.drawImage(frame, dx, dy, this.width, this.height);
+            }
+            ctx.restore();
+        } else if (isJumping) {
+            // Jump 1 while rising
+            const frame = this.jumpFrames[0];
             ctx.save();
             if (!this.facingRight) {
                 ctx.translate(dx + this.width, dy);
@@ -457,4 +483,17 @@ for (let i = 1; i <= 2; i++) {
     img.src = 'Assets/Sprite/Jumping/Jump ' + i + '.png';
     img.onload = () => { npc.jumpFramesLoaded++; };
     npc.jumpFrames.push(img);
+}
+
+// Load falling animation frames
+npc.fallFrames = [];
+npc.fallFramesLoaded = 0;
+npc.fallAnimFrame = 0;
+npc.fallAnimTimer = 0;
+npc.fallAnimSpeed = 8; // frames between fall animation switches
+for (let i = 1; i <= 2; i++) {
+    const img = new Image();
+    img.src = 'Assets/Sprite/Falling/Fall ' + i + '.png';
+    img.onload = () => { npc.fallFramesLoaded++; };
+    npc.fallFrames.push(img);
 }
