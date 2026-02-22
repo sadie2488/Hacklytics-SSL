@@ -28,7 +28,11 @@ export default async function handler(req, res) {
             return res.status(200).json({ text: "I'm speechless." });
         }
 
-        const text = data.candidates?.[0]?.content?.parts?.[0]?.text || "I'm speechless.";
+        // Gemini 2.5 models return a "thinking" part followed by the actual response.
+        // Find the last non-thought part to get the real answer.
+        const parts = data.candidates?.[0]?.content?.parts || [];
+        const responsePart = parts.filter(p => !p.thought).pop();
+        const text = responsePart?.text?.trim() || "I'm speechless.";
         res.status(200).json({ text });
     } catch (error) {
         console.error("Failed to reach Gemini:", error.message);
