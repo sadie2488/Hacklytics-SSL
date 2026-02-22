@@ -15,7 +15,7 @@ export default async function handler(req, res) {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 contents: [{
-                    parts: [{ text: `You are a platformer narrator. The event is: "${context}". Write one witty, sarcastic sentence (max 10 words).` }]
+                    parts: [{ text: `You are a calm, centered narrator. The event is: "${context}". Write one witty, sarcastic, or encouraging sentence which is something your character would say (max 10 words) without using asterisks, exclamation points, or emojis.` }]
                 }]
             })
         });
