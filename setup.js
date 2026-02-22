@@ -35,7 +35,7 @@ const narrator = new Narrator();
 const cacheBust = '?v=' + Date.now();
 
 const exitDoorImg = new Image();
-exitDoorImg.src = 'assets/Exit door.png' + cacheBust;
+exitDoorImg.src = 'Assets/Exit door.png' + cacheBust;
 
 // Biome system
 const biomeList = ['cave', 'forest', 'mountain', 'finale'];
