@@ -3,9 +3,22 @@
 <head>
     <title>Simple NPC Platformer AI</title>
     <link rel="stylesheet" href="style.css">
+    <style>
+        #api-controls {
+            margin-bottom: 10px;
+            padding: 10px;
+            background: #222;
+            color: white;
+            border-radius: 8px;
+            text-align: center;
+        }
+        input { padding: 5px; margin: 5px; width: 200px; }
+        button { padding: 5px 10px; cursor: pointer; }
+    </style>
 </head>
 <body>
     <h3>NPC AI: Red Square is the Goal | Blue is the NPC</h3>
+
     <div class="game-container">
         <video id="webcam" autoplay playsinline></video>
         <canvas id="gameCanvas" width="600" height="400"></canvas>
@@ -15,11 +28,14 @@
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
 
-<script src="setup.js"></script>
+<script src="narrator.js"></script> <script src="setup.js"></script>
 <script src="npc.js"></script>
 <script src="hand-tracking.js"></script>
 <script src="game.js"></script>
 
+<script>
+    // Helper to start the narrator
+</script>
 
 </body>
 </html>

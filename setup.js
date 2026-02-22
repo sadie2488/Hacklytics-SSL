@@ -22,6 +22,8 @@ const platforms = [
 
 const goal = { x: 1900, y: groundLevel - 30, size: 20 };
 
+const narrator = new Narrator();
+
 // Ensure paths are correct relative to your index.html
 const cacheBust = '?v=' + Date.now();
 
