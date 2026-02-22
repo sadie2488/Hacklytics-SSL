@@ -5,15 +5,6 @@ class Narrator {
         this.lastEventTime = 0;
         this.cooldown = 10000; // Minimum 3 seconds between new generations
         
-        // You can hardcode these for testing, or set them via the UI inputs I added to index.html
-        this.geminiKey = 'AIzaSyCyFPEPWOxOPRKia7Jks6LcO9pIY6UwQN4'; 
-        this.elevenLabsKey = 'sk_179d6c3ca441c796723bdc3dd4ed1cf656dbdc8e5cd4749c';
-        this.voiceId = 'jfIS2w2yJi0grJZPyEsk'; // "Rachel" voice ID (default)
-    }
-
-    setKeys(gemini, eleven) {
-        this.geminiKey = gemini;
-        this.elevenLabsKey = eleven;
     }
 
     async trigger(eventContext) {
@@ -33,9 +24,7 @@ class Narrator {
         }
     }
 
-    // Replace your old generateText method
     async generateText(context) {
-    // Call your Vercel proxy instead of the Gemini API directly
     const response = await fetch('/api/generateText', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -51,7 +40,6 @@ class Narrator {
     return data.text;
 }
 
-    // Replace your old generateAudio method
     async generateAudio(text) {
         const response = await fetch('/api/generateAudio', {
             method: 'POST',
