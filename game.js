@@ -441,25 +441,56 @@ function gameLoop(timestamp) {
     if (dt > 3) dt = 3;   // cap after tab-switch or long pause
     if (dt < 0.1) dt = 0.1; // floor to avoid near-zero
 
-    // Freeze camera during death animation so the explosion stays on screen
-    if (!deathAnimating) {
-        const targetCam = Math.max(0, Math.round(npc.x - 200));
-        if (npc.onMouse) {
-            // Slow camera follow while carrying to prevent feedback oscillation
-            const camDiff = targetCam - cameraX;
-            cameraX += Math.round(camDiff * 0.05);
-        } else {
-            cameraX = targetCam;
-        }
-    }
+    // --- UPDATE PHASE (all logic before any drawing) ---
 
-    // Convert screen-space mouse to world-space for this frame
+    // Convert screen-space mouse to world-space using previous frame's camera
     mouse.lastX = mouse.x;
     mouse.lastY = mouse.y;
     mouse.x = mouse.screenX + cameraX;
     mouse.y = mouse.screenY;
     mouse.velX = mouse.x - mouse.lastX;
     mouse.velY = mouse.y - mouse.lastY;
+
+    if (!isLevelComplete) {
+        if (deathAnimating) {
+            updateDeathParticles();
+            deathTimer -= dt;
+            if (deathTimer <= 0) {
+                deathAnimating = false;
+                deathParticles = [];
+                resetGame();
+            }
+        } else {
+            dangerBlocks.forEach(updateDangerBlock);
+            npc.update(goal.x);
+        }
+    }
+
+    // Update camera AFTER NPC so both use the same position this frame
+    if (!deathAnimating) {
+        const targetCam = Math.max(0, npc.x - 200);
+        if (npc.onMouse) {
+            // Smooth camera follow while carrying to prevent feedback oscillation
+            cameraX += (targetCam - cameraX) * 0.08;
+        } else {
+            cameraX = targetCam;
+        }
+        cameraX = Math.round(cameraX);
+    }
+
+    // --- WIN CONDITION CHECK (before drawing so win visuals appear immediately) ---
+    if (!isLevelComplete &&
+        npc.x + npc.width > goal.x &&
+        npc.x < goal.x + goal.width &&
+        npc.y + npc.height > goal.y &&
+        npc.y < goal.y + goal.height) {
+
+        isLevelComplete = true;
+        unlockNextLevel();
+        showWinScreen();
+    }
+
+    // --- DRAW PHASE ---
 
     const biome = getCurrentBiome();
     const biomeName = biomeList[currentBiomeIndex];
@@ -506,23 +537,6 @@ function gameLoop(timestamp) {
         ctx.restore();
     }
 
-    if (!isLevelComplete) {
-        // Death particle animation
-        if (deathAnimating) {
-            updateDeathParticles();
-            deathTimer -= dt;
-            if (deathTimer <= 0) {
-                deathAnimating = false;
-                deathParticles = [];
-                resetGame();
-            }
-        } else {
-            // Update danger blocks
-            dangerBlocks.forEach(updateDangerBlock);
-            npc.update(goal.x);
-        }
-    }
-
     // Draw danger blocks (behind NPC, in world space)
     dangerBlocks.forEach(drawDangerBlock);
 
@@ -535,18 +549,6 @@ function gameLoop(timestamp) {
 
     // 4. Foreground 2 overlay (in front of player)
     drawOverlayLayer();
-
-    // --- WIN CONDITION CHECK ---
-    if (!isLevelComplete &&
-        npc.x + npc.width > goal.x &&
-        npc.x < goal.x + goal.width &&
-        npc.y + npc.height > goal.y &&
-        npc.y < goal.y + goal.height) {
-
-        isLevelComplete = true;
-        unlockNextLevel();
-        showWinScreen();
-    }
 
     ctx.restore();
 
