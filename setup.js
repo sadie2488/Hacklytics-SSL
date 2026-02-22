@@ -66,13 +66,117 @@ const maxJumpDistance = speed * timeInAir;
 let cameraX = 0;
 
 // Mouse Tracking with Velocity and Stillness Timer
-let mouse = { 
-    x: 0, y: 0, 
-    lastX: 0, lastY: 0, 
-    velX: 0, velY: 0, 
-    width: 60, 
-    height: 10, 
+let mouse = {
+    x: 0, y: 0,
+    lastX: 0, lastY: 0,
+    velX: 0, velY: 0,
+    width: 60,
+    height: 10,
     active: false,
     stillTimer: 0,
-    isLocked: false 
+    isLocked: false
 };
+
+// --- Danger Blocks ---
+let dangerBlocks = [];
+
+// Returns danger blocks for a given biome and level number
+function getLevelDangerBlocks(biome, level) {
+    if (biome === 'cave') {
+        return getCaveDangerBlocks(level);
+    }
+    // Other biomes can be added later
+    return [];
+}
+
+function getCaveDangerBlocks(level) {
+    const gY = groundLevel + 20; // cave ground offset
+    switch (level) {
+        case 1: return []; // tutorial — no spiders
+        case 2: return [
+            { type: 'spider', x: 600, ceilingY: 0, maxY: gY - 60, speed: 1.2, width: 50, height: 50 }
+        ];
+        case 3: return [
+            { type: 'spider', x: 400, ceilingY: 0, maxY: gY - 50, speed: 1.3, width: 50, height: 50 },
+            { type: 'spider', x: 800, ceilingY: 0, maxY: gY - 80, speed: 1.5, width: 50, height: 50 },
+            { type: 'spider', x: 1200, ceilingY: 0, maxY: gY - 60, speed: 1.0, width: 50, height: 50 }
+        ];
+        case 4: return [
+            { type: 'spider', x: 300, ceilingY: 0, maxY: gY - 40, speed: 1.6, width: 50, height: 50 },
+            { type: 'spider', x: 550, ceilingY: 0, maxY: gY - 70, speed: 1.2, width: 50, height: 50 },
+            { type: 'spider', x: 850, ceilingY: 0, maxY: gY - 50, speed: 2.0, width: 50, height: 50 },
+            { type: 'spider', x: 1150, ceilingY: 0, maxY: gY - 80, speed: 1.4, width: 50, height: 50 },
+            { type: 'spider', x: 1450, ceilingY: 0, maxY: gY - 60, speed: 1.8, width: 50, height: 50 }
+        ];
+        default: return [];
+    }
+}
+
+// Spider sprite
+const spiderImg = new Image();
+spiderImg.src = 'Assets/Spider.png';
+
+// Initialize a danger block with runtime state
+function initDangerBlock(block) {
+    if (block.type === 'spider') {
+        block.y = block.ceilingY;       // start at the top
+        block.direction = 1;            // 1 = descending, -1 = ascending
+        block.pauseTimer = 0;           // brief pause at top/bottom
+        block.descendSpeed = block.speed * 3;   // fast drop
+        block.ascendSpeed = block.speed * 0.6;  // slow climb back up
+        block.bottomPause = 90;         // ~1.5 seconds at bottom (at 60fps)
+        block.topPause = 80;            // longer wait at ceiling before next drop
+    }
+    return block;
+}
+
+// Update a danger block each frame
+function updateDangerBlock(block) {
+    if (block.type === 'spider') {
+        if (block.pauseTimer > 0) {
+            block.pauseTimer--;
+            return;
+        }
+        // Fast descent, slow ascent
+        const currentSpeed = block.direction === 1 ? block.descendSpeed : block.ascendSpeed;
+        block.y += currentSpeed * block.direction;
+        // Reached the bottom — long pause then reverse
+        if (block.y >= block.maxY) {
+            block.y = block.maxY;
+            block.direction = -1;
+            block.pauseTimer = block.bottomPause;
+        }
+        // Reached the ceiling — pause then drop again
+        if (block.y <= block.ceilingY) {
+            block.y = block.ceilingY;
+            block.direction = 1;
+            block.pauseTimer = block.topPause;
+        }
+    }
+}
+
+// Draw a danger block
+function drawDangerBlock(block) {
+    if (block.type === 'spider') {
+        const cx = block.x + block.width / 2;
+
+        // --- White string from ceiling to spider ---
+        ctx.save();
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.7)';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(cx, block.ceilingY);
+        ctx.lineTo(cx, block.y + 4);
+        ctx.stroke();
+        ctx.restore();
+
+        // --- Spider sprite ---
+        if (spiderImg.complete && spiderImg.naturalWidth > 0) {
+            ctx.drawImage(spiderImg, block.x, block.y, block.width, block.height);
+        } else {
+            // Fallback rectangle if image hasn't loaded
+            ctx.fillStyle = '#1a1a1a';
+            ctx.fillRect(block.x, block.y, block.width, block.height);
+        }
+    }
+}

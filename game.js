@@ -59,7 +59,7 @@ function drawForestParallaxLayer(img, parallaxFactor) {
 function drawMountainLayer(img, parallaxFactor) {
     if (!img.complete || img.naturalWidth === 0 || img.naturalHeight === 0) return;
 
-    const numLevels = 8;
+    const numLevels = 4;
     const sectionSrcW = img.naturalWidth / numLevels;
     const sectionSrcStart = (currentLevel - 1) * sectionSrcW;
 
@@ -137,12 +137,17 @@ function updateLevelButtons() {
             btn.classList.add('locked');
         }
     });
+    // Show "Tutorial" label only on caves biome
+    const tutLabel = document.querySelector('.tutorial-label');
+    if (tutLabel) {
+        tutLabel.style.display = (biome === 'cave') ? 'block' : 'none';
+    }
 }
 
 function unlockNextLevel() {
     const biome = biomeList[currentBiomeIndex];
     if (currentLevel >= maxUnlockedLevel[biome]) {
-        maxUnlockedLevel[biome] = Math.min(currentLevel + 1, 8);
+        maxUnlockedLevel[biome] = Math.min(currentLevel + 1, 4);
     }
     updateLevelButtons();
 }
@@ -168,7 +173,7 @@ function switchBiome(delta) {
 }
 
 function showLevelSelect() {
-    unlockNextLevel();
+    updateLevelButtons();
     const ls = document.getElementById('level-select');
     ls.style.background = biomeMenuBgs[biomeList[currentBiomeIndex]];
     ls.style.display = 'flex';
@@ -205,10 +210,13 @@ function resetGame() {
 
     // Adjust ground level per biome so sprite sits on the terrain art
     const biomeName = biomeList[currentBiomeIndex];
-    const biomeGroundOffset = (biomeName === 'mountain') ? 20 : (biomeName === 'cave') ? 40 : 0;
+    const biomeGroundOffset = (biomeName === 'mountain') ? 20 : (biomeName === 'cave') ? 20 : 0;
     platforms[0].y = groundLevel + biomeGroundOffset;
     goal.y = platforms[0].y - goal.height;
     npc.y = platforms[0].y - npc.height;
+
+    // Load danger blocks for this level
+    dangerBlocks = getLevelDangerBlocks(biomeName, currentLevel).map(b => initDangerBlock(Object.assign({}, b)));
 }
 
 // Level select button handlers
@@ -219,6 +227,7 @@ document.addEventListener('DOMContentLoaded', function () {
             currentLevel = parseInt(btn.getAttribute('data-level'));
             hideLevelSelect();
             setTimeout(function () {
+                document.querySelector('.game-container').style.visibility = 'visible';
                 resetGame();
                 gameLoop();
             }, 900);
@@ -278,8 +287,14 @@ function gameLoop() {
     }
 
     if (!isLevelComplete) {
+        // Update danger blocks
+        dangerBlocks.forEach(updateDangerBlock);
         npc.update(goal.x);
     }
+
+    // Draw danger blocks (behind NPC, in world space)
+    dangerBlocks.forEach(drawDangerBlock);
+
     npc.draw();
 
     // 4. Foreground 2 overlay (in front of player)
@@ -293,6 +308,7 @@ function gameLoop() {
         npc.y < goal.y + goal.height) {
 
         isLevelComplete = true;
+        unlockNextLevel();
         showWinScreen();
     }
 

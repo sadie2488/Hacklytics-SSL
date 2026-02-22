@@ -14,6 +14,19 @@ const npc = {
     animTimer: 0,
     animSpeed: 5, // frames between animation switches
 
+    reset() {
+        this.x = 50;
+        this.y = 140;
+        this.velocityX = 0;
+        this.velocityY = 0;
+        this.onMouse = false;
+        this.isGrounded = true;
+        this.state = 'SEEKING';
+        this.stamina = maxStamina;
+        this.animFrame = 0;
+        this.animTimer = 0;
+    },
+
     update(goalX) {
     let distanceToGoal = goalX - this.x;
     const prevY = this.y;
@@ -155,9 +168,6 @@ const npc = {
             }
         }
 
-        this.x += this.velocityX;
-        this.y += this.velocityY;
-
         // Clamp horizontal drift while airborne so hand jumps stay controlled.
         if (!this.onMouse) {
             const maxAirSpeed = speed * 1.5;
@@ -165,17 +175,20 @@ const npc = {
             if (this.velocityX < -maxAirSpeed) this.velocityX = -maxAirSpeed;
         }
 
-        // Apply gravity whenever we're not riding the hand platform.
-        if (!this.onMouse) {
+        // Apply gravity only when airborne (not riding hand, not grounded)
+        if (!this.onMouse && !this.isGrounded) {
             this.velocityY += gravity;
-            this.isGrounded = false;
         }
 
-        // --- Inside npc.update() in npc.js ---
+        // Update position
+        this.x += this.velocityX;
+        this.y += this.velocityY;
+
+        // Reset grounded for fresh collision detection
         this.isGrounded = false;
 
-        // Check collision with the hand platform first
-        if (this.velocityY >= 0 && 
+        // Check collision with the hand platform (only when active with stamina)
+        if (mouse.active && this.stamina > 0 && this.velocityY >= 0 &&
             this.x + this.width > mouse.x && this.x < mouse.x + mouse.width &&
             this.y + this.height >= mouse.y && this.y + this.height <= mouse.y + 10) {
             this.y = mouse.y - this.height;
@@ -190,8 +203,8 @@ const npc = {
                 this.x + this.width > p.x &&
                 this.x < p.x + p.w &&
                 this.y + this.height >= p.y &&
-                prevY + this.height <= p.y) { // swept collision: feet crossed platform top
-                
+                prevY + this.height <= p.y + 1) { // small tolerance for stable grounding
+
                 this.y = p.y - this.height;
                 this.velocityY = 0;
                 this.isGrounded = true;
@@ -200,16 +213,22 @@ const npc = {
             }
         });
 
+        // --- DANGER BLOCK COLLISION ---
+        for (let i = 0; i < dangerBlocks.length; i++) {
+            const d = dangerBlocks[i];
+            if (this.x + this.width > d.x &&
+                this.x < d.x + d.width &&
+                this.y + this.height > d.y &&
+                this.y < d.y + d.height) {
+                this.reset();
+                break;
+            }
+        }
+
         // --- COLLISION LOGIC ---
         // Fall protection: Reset if the NPC falls off the bottom
         if (this.y > canvas.height + 100) {
-            this.x = 50; 
-            this.y = 140;
-            this.velocityX = 0;
-            this.velocityY = 0;
-            this.onMouse = false;
-            this.isGrounded = true;
-            this.state = 'SEEKING';
+            this.reset();
         }
     },
 
