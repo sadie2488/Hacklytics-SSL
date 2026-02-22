@@ -33,85 +33,34 @@ class Narrator {
         }
     }
 
+    // Replace your old generateText method
     async generateText(context) {
-    // Ensure you have your key here if not using the input boxes
-        if (!this.geminiKey) {
-            console.error("Missing Gemini API Key!");
-            return null;
-        }
+    // Call your Vercel proxy instead of the Gemini API directly
+    const response = await fetch('/api/generateText', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ context })
+    });
 
-        const prompt = `
-            You are the narrator of a platformer game where a giant hand helps a tiny NPC.
-            The current event is: "${context}".
-            Write a SINGLE, witty, sarcastic, or encouraging sentence (max 10 words) reacting to this. 
-            Do not use hashtags, asterisks,, exclamation marks, or emojis.
-        `;
-
-        // Corrected URL format
-        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=${this.geminiKey}`;
-        
-        try {
-            const response = await fetch(url, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    contents: [{ parts: [{ text: prompt }] }]
-                })
-            });
-
-            if (!response.ok) {
-                const errorData = await response.json();
-                console.error("Gemini API Error:", errorData);
-                return null;
-            }
-
-            const data = await response.json();
-            const generatedText = data.candidates?.[0]?.content?.parts?.[0]?.text;
-            console.log("Gemini says:", generatedText);
-            return generatedText;
-        } catch (error) {
-            console.error("Fetch failed:", error);
-            return null;
-        }
+    if (!response.ok) {
+        console.error("Vercel Proxy Error");
+        return null;
     }
 
+    const data = await response.json();
+    return data.text;
+}
+
+    // Replace your old generateAudio method
     async generateAudio(text) {
-        if (!this.elevenLabsKey) return;
-
-        // Double check that this.elevenLabsKey doesn't have accidental spaces
-        const cleanKey = this.elevenLabsKey.trim();
-        const voiceId = 'jfIS2w2yJi0grJZPyEsk'; 
-        const url = `https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`;
-
-        const response = await fetch(url, {
+        const response = await fetch('/api/generateAudio', {
             method: 'POST',
-            headers: {
-                'xi-api-key': cleanKey, // Must be exactly this
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                text: text,
-                model_id: "eleven_monolingual_v1",
-                voice_settings: { 
-                    stability: 0.5, 
-                    similarity_boost: 0.5 
-                }
-            })
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ text })
         });
-
-        if (response.status === 401) {
-            console.error("ElevenLabs 401: Your API key is invalid. Check for typos or extra spaces.");
-            return;
-        }
-
-        if (!response.ok) {
-            const err = await response.json();
-            console.error("ElevenLabs Error:", err);
-            return;
-        }
-
-        const audioBlob = await response.blob();
-        this.playAudio(audioBlob);
+        
+        const blob = await response.blob();
+        this.playAudio(blob);
     }
 
     playAudio(blob) {
