@@ -97,7 +97,7 @@
 
     // --- Audio ---
     const gameStartAudio = new Audio('Assets/game_start.mp3');
-    const pianoAudio = new Audio("See Siang Wong - One Summer's Day  From the Soundtrack to Spirited Away by Joe Hisaishi.mp3");
+    const pianoAudio = new Audio("Assets/See Siang Wong - One Summer's Day  From the Soundtrack to Spirited Away by Joe Hisaishi.mp3");
     pianoAudio.volume = 0.7;
 
     // --- Sprite-surrounding fire particles ---

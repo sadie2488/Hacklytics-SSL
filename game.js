@@ -92,8 +92,31 @@ function drawForegroundLayer() {
     const img = biome.foreground;
     if (!img.complete || img.naturalWidth === 0) return;
 
-    // Extend past the door for a cleaner look on all biomes
-    ctx.drawImage(img, 0, 0, levelWidth + canvas.width, canvas.height);
+    const totalW = levelWidth + canvas.width;
+    const totalH = canvas.height;
+
+    if (levelHole) {
+        // Draw foreground with the hole cut out using even-odd clipping
+        ctx.save();
+        ctx.beginPath();
+        // Outer rect (clockwise)
+        ctx.moveTo(0, 0);
+        ctx.lineTo(totalW, 0);
+        ctx.lineTo(totalW, totalH);
+        ctx.lineTo(0, totalH);
+        ctx.closePath();
+        // Hole rect (counter-clockwise to subtract)
+        ctx.moveTo(levelHole.x, 0);
+        ctx.lineTo(levelHole.x, totalH);
+        ctx.lineTo(levelHole.x + levelHole.w, totalH);
+        ctx.lineTo(levelHole.x + levelHole.w, 0);
+        ctx.closePath();
+        ctx.clip('evenodd');
+        ctx.drawImage(img, 0, 0, totalW, totalH);
+        ctx.restore();
+    } else {
+        ctx.drawImage(img, 0, 0, totalW, totalH);
+    }
 }
 
 // --- Foreground 2 overlay (in front of player, world space) ---
@@ -101,6 +124,9 @@ function drawOverlayLayer() {
     const biome = getCurrentBiome();
     const img = biome.foreground2;
     if (!img.complete || img.naturalWidth === 0) return;
+
+    const totalW = levelWidth + canvas.width;
+    const totalH = canvas.height;
 
     ctx.save();
     if (biomeList[currentBiomeIndex] === 'cave') {
@@ -112,7 +138,24 @@ function drawOverlayLayer() {
     } else {
         ctx.globalAlpha = 0.65;
     }
-    ctx.drawImage(img, 0, 0, levelWidth + canvas.width, canvas.height);
+
+    if (levelHole) {
+        // Draw overlay with the hole cut out using even-odd clipping
+        ctx.beginPath();
+        ctx.moveTo(0, 0);
+        ctx.lineTo(totalW, 0);
+        ctx.lineTo(totalW, totalH);
+        ctx.lineTo(0, totalH);
+        ctx.closePath();
+        ctx.moveTo(levelHole.x, 0);
+        ctx.lineTo(levelHole.x, totalH);
+        ctx.lineTo(levelHole.x + levelHole.w, totalH);
+        ctx.lineTo(levelHole.x + levelHole.w, 0);
+        ctx.closePath();
+        ctx.clip('evenodd');
+    }
+
+    ctx.drawImage(img, 0, 0, totalW, totalH);
     ctx.restore();
 }
 
@@ -211,9 +254,26 @@ function resetGame() {
     // Adjust ground level per biome so sprite sits on the terrain art
     const biomeName = biomeList[currentBiomeIndex];
     const biomeGroundOffset = (biomeName === 'mountain') ? 20 : (biomeName === 'cave') ? 20 : 0;
-    platforms[0].y = groundLevel + biomeGroundOffset;
-    goal.y = platforms[0].y - goal.height;
-    npc.y = platforms[0].y - npc.height;
+    const platY = groundLevel + biomeGroundOffset;
+
+    // Set up platforms and hole based on biome/level
+    if (biomeName === 'cave' && currentLevel === 1) {
+        const holeStart = 900;
+        const holeWidth = 200;
+        levelHole = { x: holeStart, w: holeWidth };
+        platforms.length = 0;
+        platforms.push(
+            { x: 0, y: platY, w: holeStart, h: 60 },
+            { x: holeStart + holeWidth, y: platY, w: levelWidth - holeStart - holeWidth, h: 60 }
+        );
+    } else {
+        levelHole = null;
+        platforms.length = 0;
+        platforms.push({ x: 0, y: platY, w: levelWidth, h: 60 });
+    }
+
+    goal.y = platY - goal.height;
+    npc.y = platY - npc.height;
 
     // Load danger blocks for this level
     dangerBlocks = getLevelDangerBlocks(biomeName, currentLevel).map(b => initDangerBlock(Object.assign({}, b)));

@@ -16,10 +16,13 @@ const groundLevel = 350;
 const groundY = groundLevel;
 const levelWidth = 2000;
 
-// One long flat platform
-const platforms = [
+// Platforms (rebuilt per level in resetGame)
+let platforms = [
     { x: 0, y: groundLevel, w: levelWidth, h: 60 }
 ];
+
+// Hole definition for the current level (null = no hole)
+let levelHole = null;
 
 const goal = { x: 1900, y: groundLevel - 92, width: 80, height: 92 };
 
