@@ -67,6 +67,8 @@ const npc = {
     animTimer: 0,
     animSpeed: 5, // frames between animation switches
     waitTimer: 0, // countdown before NPC starts running (IDLE state)
+    idleBobTimer: 0, // sine timer for idle bob
+    idleParticles: [], // fire wisps around idle sprite
 
     reset() {
         this.x = 50;
@@ -79,6 +81,8 @@ const npc = {
         this.stamina = maxStamina;
         this.animFrame = 0;
         this.animTimer = 0;
+        this.idleBobTimer = 0;
+        this.idleParticles = [];
     },
 
     die() {
@@ -364,12 +368,30 @@ const npc = {
         ctx.restore();
     },
 
+    drawShadowLayer(img, mx, my, alpha) {
+        if (!img.complete || img.naturalWidth === 0) return;
+        const shadowW = 110;
+        const shadowH = shadowW * (img.naturalHeight / img.naturalWidth);
+        const sx = mx + mouse.width / 2 - shadowW / 2;
+        const sy = my + mouse.height / 2 - shadowH / 2;
+        ctx.save();
+        ctx.globalAlpha = alpha;
+        ctx.drawImage(img, sx, sy, shadowW, shadowH);
+        ctx.restore();
+    },
+
     draw() {
         // Round to whole pixels to prevent sub-pixel shimmer/jitter
         const dx = Math.round(this.x);
         const dy = Math.round(this.y);
         const mx = Math.round(mouse.x);
         const my = Math.round(mouse.y);
+
+        // --- Shadow bottom layer (behind sprite) ---
+        if (mouse.active && this.stamina > 0) {
+            const shadowAlpha = mouse.isLocked ? 1.0 : 0.65;
+            this.drawShadowLayer(shadowBottomImg, mx, my, shadowAlpha);
+        }
 
         // Determine if we should use the running animation
         const isRunning = this.state === 'SEEKING' && this.isGrounded && !this.onMouse
@@ -427,6 +449,43 @@ const npc = {
             }
             ctx.restore();
         } else if (this.spriteLoaded && this.sprite) {
+            // Idle animation: fire wisps
+            // Spawn fire wisps around the sprite
+            if (this.isGrounded && Math.random() < 0.35) {
+                const cx = dx + this.width / 2;
+                const cy = dy + this.height * 0.6;
+                this.idleParticles.push({
+                    x: cx + (Math.random() - 0.5) * this.width * 0.8,
+                    y: cy + (Math.random() - 0.5) * 10,
+                    vx: (Math.random() - 0.5) * 0.6,
+                    vy: -(0.5 + Math.random() * 1.5),
+                    life: 1.0,
+                    decay: 0.025 + Math.random() * 0.02,
+                    size: 1.5 + Math.random() * 3,
+                    hue: Math.random() < 0.6 ? 20 + Math.random() * 25 : 45 + Math.random() * 15
+                });
+                if (this.idleParticles.length > 25) this.idleParticles.shift();
+            }
+
+            // Update and draw idle fire particles
+            for (let i = this.idleParticles.length - 1; i >= 0; i--) {
+                const p = this.idleParticles[i];
+                p.x += p.vx * dt;
+                p.y += p.vy * dt;
+                p.life -= p.decay * dt;
+                p.size *= Math.pow(0.97, dt);
+                if (p.life <= 0) { this.idleParticles.splice(i, 1); continue; }
+                ctx.save();
+                ctx.globalAlpha = p.life * 0.7;
+                ctx.shadowColor = 'hsl(' + p.hue + ', 100%, 55%)';
+                ctx.shadowBlur = 6;
+                ctx.fillStyle = 'hsl(' + p.hue + ', 100%, ' + (50 + p.life * 30) + '%)';
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+            }
+
             ctx.drawImage(this.sprite, dx, dy, this.width, this.height);
         } else {
             ctx.fillStyle = (this.onMouse && mouse.isLocked) ? '#2ecc71' :
@@ -452,10 +511,10 @@ const npc = {
             ctx.fillRect(dx, dy - 15, barWidth * healthPercent, barHeight);
         }
 
-        // Draw the shadow platform if active and stamina remains
+        // --- Shadow top layer (in front of sprite) ---
         if (mouse.active && this.stamina > 0) {
-            ctx.fillStyle = mouse.isLocked ? '#0a0a1a' : 'rgba(255, 255, 255, 0.2)';
-            ctx.fillRect(mx, my, mouse.width, mouse.height);
+            const shadowAlpha = mouse.isLocked ? 1.0 : 0.55;
+            this.drawShadowLayer(shadowTopImg, mx, my, shadowAlpha);
         }
     }
 };
@@ -464,6 +523,12 @@ npc.sprite = new Image();
 npc.spriteLoaded = false;
 npc.sprite.src = 'Assets/Sprite/player.png';
 npc.sprite.onload = () => { npc.spriteLoaded = true; };
+
+// Shadow platform images (sandwich layers around the sprite)
+const shadowBottomImg = new Image();
+shadowBottomImg.src = 'Assets/Shadow.png';
+const shadowTopImg = new Image();
+shadowTopImg.src = 'Assets/Shadow 2.png';
 
 // Load running animation frames
 npc.runFrames = [];

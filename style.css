@@ -321,3 +321,65 @@ canvas#gameCanvas {
     opacity: 0;
     transition: opacity 0.4s ease;
 }
+
+/* Gold sparkly finale button */
+.level-btn.finale-gold {
+    background: linear-gradient(135deg, #8B6914 0%, #DAA520 25%, #FFD700 50%, #DAA520 75%, #8B6914 100%);
+    border: 2px solid #FFD700;
+    color: #3a2500;
+    text-shadow: 0 1px 2px rgba(255, 215, 0, 0.6);
+    box-shadow: 0 0 15px rgba(255, 215, 0, 0.4), 0 0 30px rgba(255, 215, 0, 0.2), inset 0 0 10px rgba(255, 255, 200, 0.2);
+    animation: finale-glow 2s ease-in-out infinite;
+    position: relative;
+    overflow: hidden;
+}
+
+.level-btn.finale-gold::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 60%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.35), transparent);
+    animation: shimmer-sweep 3s ease-in-out infinite;
+}
+
+.level-btn.finale-gold:hover {
+    background: linear-gradient(135deg, #9B7924 0%, #EAB530 25%, #FFE740 50%, #EAB530 75%, #9B7924 100%);
+    border-color: #FFE740;
+    transform: scale(1.12);
+    box-shadow: 0 0 25px rgba(255, 215, 0, 0.6), 0 0 50px rgba(255, 215, 0, 0.3), inset 0 0 15px rgba(255, 255, 200, 0.3);
+}
+
+@keyframes finale-glow {
+    0%, 100% { box-shadow: 0 0 15px rgba(255, 215, 0, 0.4), 0 0 30px rgba(255, 215, 0, 0.2), inset 0 0 10px rgba(255, 255, 200, 0.2); }
+    50% { box-shadow: 0 0 25px rgba(255, 215, 0, 0.6), 0 0 45px rgba(255, 215, 0, 0.3), inset 0 0 15px rgba(255, 255, 200, 0.3); }
+}
+
+@keyframes shimmer-sweep {
+    0% { left: -100%; }
+    50% { left: 200%; }
+    100% { left: 200%; }
+}
+
+.level-grid.finale-grid {
+    display: flex;
+    justify-content: center;
+}
+
+/* Finale cinematic overlay */
+#finale-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 2000;
+    background: #000;
+}
+
+#finaleCanvas {
+    width: 100%;
+    height: 100%;
+}

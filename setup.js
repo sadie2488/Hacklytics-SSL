@@ -38,25 +38,27 @@ const exitDoorImg = new Image();
 exitDoorImg.src = 'assets/Exit door.png' + cacheBust;
 
 // Biome system
-const biomeList = ['cave', 'forest', 'mountain'];
-const biomeNames = { cave: 'CAVES', forest: 'FOREST', mountain: 'MOUNTAIN' };
-const biomeFills = { cave: '#1e1e1e', forest: '#0e1e0e', mountain: '#1a1e2a' };
+const biomeList = ['cave', 'forest', 'mountain', 'finale'];
+const biomeNames = { cave: 'CAVES', forest: 'FOREST', mountain: 'MOUNTAIN', finale: 'FINALE' };
+const biomeFills = { cave: '#1e1e1e', forest: '#0e1e0e', mountain: '#1a1e2a', finale: '#0a0a0a' };
 const biomeMenuBgs = {
     cave: 'radial-gradient(ellipse at center, #1a1a3a 0%, #0a0a18 60%, #050510 100%)',
     forest: 'radial-gradient(ellipse at center, #0a2a0a 0%, #061806 60%, #030f03 100%)',
-    mountain: 'radial-gradient(ellipse at center, #1a2535 0%, #0a1520 60%, #050d15 100%)'
+    mountain: 'radial-gradient(ellipse at center, #1a2535 0%, #0a1520 60%, #050d15 100%)',
+    finale: 'radial-gradient(ellipse at center, #2a1a00 0%, #140a00 60%, #0a0500 100%)'
 };
 let currentBiomeIndex = 0;
 
 const biomes = {};
 biomeList.forEach(function(biome) {
-    const cap = biome.charAt(0).toUpperCase() + biome.slice(1);
     biomes[biome] = {
         background: new Image(),
         middleground: new Image(),
         foreground: new Image(),
         foreground2: new Image()
     };
+    if (biome === 'finale') return; // finale has no game backgrounds
+    const cap = biome.charAt(0).toUpperCase() + biome.slice(1);
     biomes[biome].background.src = 'art/backgrounds/' + biome + '/' + cap + ' Background.png' + cacheBust;
     biomes[biome].middleground.src = 'art/backgrounds/' + biome + '/' + cap + ' Middleground.png' + cacheBust;
     biomes[biome].foreground.src = 'art/backgrounds/' + biome + '/' + cap + ' Foreground.png' + cacheBust;
@@ -94,10 +96,12 @@ function getLevelDangerBlocks(biome, level) {
     if (biome === 'cave') {
         return getCaveDangerBlocks(level);
     }
+    if (biome === 'forest') {
+        return getForestDangerBlocks(level);
+    }
     if (biome === 'mountain') {
         return getMountainDangerBlocks(level);
     }
-    // Other biomes can be added later
     return [];
 }
 
@@ -125,6 +129,39 @@ function getCaveDangerBlocks(level) {
             { type: 'spider', x: 850, ceilingY: 0, maxY: gY - 50, speed: 2.0, width: 50, height: 50 },
             { type: 'spider', x: 1150, ceilingY: 0, maxY: gY - 80, speed: 1.4, width: 50, height: 50 },
             { type: 'spider', x: 1450, ceilingY: 0, maxY: gY - 60, speed: 1.8, width: 50, height: 50 }
+        ];
+        default: return [];
+    }
+}
+
+function getForestDangerBlocks(level) {
+    const gY = groundLevel; // forest has no ground offset
+    switch (level) {
+        case 1: return [
+            // Gentle intro: a couple brambles to jump over
+            { type: 'bramble', x: 400,  groundY: gY, width: 45, height: 40 },
+            { type: 'bramble', x: 1100, groundY: gY, width: 45, height: 40 }
+        ];
+        case 2: return [
+            // More brambles scattered across platforms
+            { type: 'bramble', x: 280,  groundY: gY, width: 45, height: 40 },
+            { type: 'bramble', x: 800,  groundY: gY, width: 45, height: 40 },
+            { type: 'bramble', x: 1500, groundY: gY, width: 45, height: 40 }
+        ];
+        case 3: return [
+            // Brambles on every platform — must jump over each before the next gap
+            { type: 'bramble', x: 200,  groundY: gY, width: 45, height: 40 },
+            { type: 'bramble', x: 600,  groundY: gY, width: 45, height: 40 },
+            { type: 'bramble', x: 1080, groundY: gY, width: 45, height: 40 },
+            { type: 'bramble', x: 1600, groundY: gY, width: 45, height: 40 }
+        ];
+        case 4: return [
+            // Dense bramble gauntlet — tight spacing on narrow platforms
+            { type: 'bramble', x: 150,  groundY: gY, width: 45, height: 40 },
+            { type: 'bramble', x: 530,  groundY: gY, width: 45, height: 40 },
+            { type: 'bramble', x: 930,  groundY: gY, width: 45, height: 40 },
+            { type: 'bramble', x: 1350, groundY: gY, width: 45, height: 40 },
+            { type: 'bramble', x: 1750, groundY: gY, width: 45, height: 40 }
         ];
         default: return [];
     }
@@ -165,6 +202,25 @@ spiderImg.src = 'Assets/Spider.png';
 // Bramble sprite (ground obstacle the NPC must jump over)
 const brambleImg = new Image();
 brambleImg.src = 'Assets/Bramble.png';
+
+// Cache a feathered version of the bramble so edges aren't harsh
+let brambleFeathered = null;
+brambleImg.addEventListener('load', function () {
+    const size = 64; // render at a fixed size, draw scaled
+    const off = document.createElement('canvas');
+    off.width = size;
+    off.height = size;
+    const oc = off.getContext('2d');
+    oc.drawImage(brambleImg, 0, 0, size, size);
+    oc.globalCompositeOperation = 'destination-in';
+    const r = size / 2;
+    const grad = oc.createRadialGradient(r, r, r * 0.38, r, r, r);
+    grad.addColorStop(0, 'rgba(0,0,0,1)');
+    grad.addColorStop(1, 'rgba(0,0,0,0)');
+    oc.fillStyle = grad;
+    oc.fillRect(0, 0, size, size);
+    brambleFeathered = off;
+});
 
 // Icicle sprite (ceiling danger for mountain biome)
 const icicleImg = new Image();
@@ -261,10 +317,11 @@ function drawDangerBlock(block) {
         }
     }
     if (block.type === 'bramble') {
-        if (brambleImg.complete && brambleImg.naturalWidth > 0) {
+        if (brambleFeathered) {
+            ctx.drawImage(brambleFeathered, block.x, block.y, block.width, block.height);
+        } else if (brambleImg.complete && brambleImg.naturalWidth > 0) {
             ctx.drawImage(brambleImg, block.x, block.y, block.width, block.height);
         } else {
-            // Fallback: spiky dark shape
             ctx.fillStyle = '#3a2a1a';
             ctx.fillRect(block.x, block.y, block.width, block.height);
         }
