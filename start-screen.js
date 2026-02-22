@@ -228,8 +228,8 @@
             let spriteOpacity = 0;
             let flickerTimer = 0;
             let holdTimer = 0;
-            const spriteW = 120;
-            const spriteH = 150;
+            const spriteW = 160;
+            const spriteH = 200;
             const sx = (W - spriteW) / 2;
             const sy = (H - spriteH) / 2;
             const spriteCX = W / 2;
@@ -304,8 +304,8 @@
         // PHASE 3: Sprite fades out
         function phaseFadeOutSprite() {
             let fadeOut = 1;
-            const spriteW = 120;
-            const spriteH = 150;
+            const spriteW = 160;
+            const spriteH = 200;
             const sx = (W - spriteW) / 2;
             const sy = (H - spriteH) / 2;
             const spriteCX = W / 2;

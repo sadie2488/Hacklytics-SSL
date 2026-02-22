@@ -21,8 +21,11 @@ let platforms = [
     { x: 0, y: groundLevel, w: levelWidth, h: 60 }
 ];
 
-// Hole definition for the current level (null = no hole)
-let levelHole = null;
+// Hole definitions for the current level (array of {x, w} objects)
+let levelHole = [];
+
+// Wall definitions for the current level (array of {x, y, w, h} objects)
+let walls = [];
 
 const goal = { x: 1900, y: groundLevel - 92, width: 80, height: 92 };
 
@@ -71,6 +74,7 @@ let cameraX = 0;
 // Mouse Tracking with Velocity and Stillness Timer
 let mouse = {
     x: 0, y: 0,
+    screenX: 0, screenY: 0,
     lastX: 0, lastY: 0,
     velX: 0, velY: 0,
     width: 60,
@@ -100,9 +104,7 @@ function getCaveDangerBlocks(level) {
             { type: 'spider', x: 600, ceilingY: 0, maxY: gY - 60, speed: 1.2, width: 50, height: 50 }
         ];
         case 3: return [
-            { type: 'spider', x: 400, ceilingY: 0, maxY: gY - 50, speed: 1.3, width: 50, height: 50 },
-            { type: 'spider', x: 800, ceilingY: 0, maxY: gY - 80, speed: 1.5, width: 50, height: 50 },
-            { type: 'spider', x: 1200, ceilingY: 0, maxY: gY - 60, speed: 1.0, width: 50, height: 50 }
+            { type: 'spider', x: 1000, ceilingY: 0, maxY: gY - 60, speed: 1.3, width: 50, height: 50 }
         ];
         case 4: return [
             { type: 'spider', x: 300, ceilingY: 0, maxY: gY - 40, speed: 1.6, width: 50, height: 50 },
@@ -137,12 +139,12 @@ function initDangerBlock(block) {
 function updateDangerBlock(block) {
     if (block.type === 'spider') {
         if (block.pauseTimer > 0) {
-            block.pauseTimer--;
+            block.pauseTimer -= dt;
             return;
         }
         // Fast descent, slow ascent
         const currentSpeed = block.direction === 1 ? block.descendSpeed : block.ascendSpeed;
-        block.y += currentSpeed * block.direction;
+        block.y += currentSpeed * block.direction * dt;
         // Reached the bottom — long pause then reverse
         if (block.y >= block.maxY) {
             block.y = block.maxY;

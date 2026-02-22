@@ -1,18 +1,72 @@
+// --- Fire particle system for death explosion ---
+let deathParticles = [];
+let deathAnimating = false;
+let deathTimer = 0;
+const DEATH_DURATION = 60; // ~1 second at 60fps
+
+function spawnDeathParticles(cx, cy) {
+    deathParticles = [];
+    for (let i = 0; i < 30; i++) {
+        const angle = Math.random() * Math.PI * 2;
+        const spd = 1.5 + Math.random() * 4;
+        deathParticles.push({
+            x: cx + (Math.random() - 0.5) * 20,
+            y: cy + (Math.random() - 0.5) * 20,
+            vx: Math.cos(angle) * spd,
+            vy: Math.sin(angle) * spd - 2, // bias upward
+            life: 1.0,
+            decay: 0.015 + Math.random() * 0.02,
+            size: 4 + Math.random() * 8,
+            hue: Math.random() < 0.6 ? 20 + Math.random() * 30 : 45 + Math.random() * 15 // orange-red to yellow
+        });
+    }
+}
+
+function updateDeathParticles() {
+    for (let i = deathParticles.length - 1; i >= 0; i--) {
+        const p = deathParticles[i];
+        p.x += p.vx * dt;
+        p.y += p.vy * dt;
+        p.vy += 0.08 * dt; // gentle gravity on particles
+        p.life -= p.decay * dt;
+        p.size *= Math.pow(0.98, dt);
+        if (p.life <= 0) deathParticles.splice(i, 1);
+    }
+}
+
+function drawDeathParticles() {
+    deathParticles.forEach(p => {
+        ctx.save();
+        ctx.globalAlpha = Math.max(0, p.life);
+        // Glow
+        ctx.shadowColor = 'hsl(' + p.hue + ', 100%, 55%)';
+        ctx.shadowBlur = 12;
+        ctx.fillStyle = 'hsl(' + p.hue + ', 100%, ' + (50 + p.life * 30) + '%)';
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+    });
+}
+
 const npc = {
     x: 50, y: 140,
     width: 82, height: 100,
+    // Hitbox inset: collision rect is narrower than the sprite
+    hitboxInsetX: 16, // pixels trimmed from each side for danger collisions
     velocityX: 0, velocityY: 0,
     stamina: 100,
     isGrounded: false,
     onMouse: false,
     // Maximum pixels the shadow can move the NPC per frame
-    maxShadowSpeed: 14,
+    maxShadowSpeed: 6,
     state: 'SEEKING',
     // Running animation state
     facingRight: true,
     animFrame: 0,
     animTimer: 0,
     animSpeed: 5, // frames between animation switches
+    waitTimer: 0, // countdown before NPC starts running (IDLE state)
 
     reset() {
         this.x = 50;
@@ -25,6 +79,20 @@ const npc = {
         this.stamina = maxStamina;
         this.animFrame = 0;
         this.animTimer = 0;
+    },
+
+    die() {
+        if (deathAnimating) return; // already dying
+        // Spawn fire particles at sprite center
+        const cx = this.x + this.width / 2;
+        const cy = this.y + this.height / 2;
+        spawnDeathParticles(cx, cy);
+        deathAnimating = true;
+        deathTimer = DEATH_DURATION;
+        // Hide the sprite off-screen while particles play
+        this.x = -9999;
+        this.velocityX = 0;
+        this.velocityY = 0;
     },
 
     update(goalX) {
@@ -52,7 +120,7 @@ const npc = {
 
     // Inside npc.update(goalX)
     if (this.onMouse) {
-        this.stamina -= staminaDepleteRate;
+        this.stamina -= staminaDepleteRate * dt;
 
         if (this.stamina <= 0) {
             this.stamina = 0;
@@ -63,20 +131,30 @@ const npc = {
     } else {
         // Regenerate stamina only when safely on a ground platform
         if (this.isGrounded) {
-            this.stamina = Math.min(maxStamina, this.stamina + staminaRegenRate);
+            this.stamina = Math.min(maxStamina, this.stamina + staminaRegenRate * dt);
         }
     }
 
     // Death Logic: If the NPC falls below the screen
     if (this.y > canvas.height + 100) {
-        this.reset();
+        this.die();
+    }
+
+    // IDLE: stand still for a moment before running (level start / respawn)
+    if (this.state === 'IDLE') {
+        this.velocityX = 0;
+        this.waitTimer -= dt;
+        if (this.waitTimer <= 0) {
+            this.waitTimer = 0;
+            this.state = 'SEEKING';
+        }
     }
 
     if (this.state === 'SEEKING') {
         // Walk toward the goal
         let direction = (goalX > this.x) ? 1 : -1;
         this.facingRight = direction === 1;
-        let nextX = this.x + (direction * speed);
+        let nextX = this.x + (direction * speed * dt);
 
         // Only move if there is ground, but ignore ledge detection
         // if we are very close to the goal (to allow the "win" touch)
@@ -86,10 +164,19 @@ const npc = {
             Math.abs((this.y + this.height) - p.y) < 10
         );
 
-        if (hasGroundAhead || Math.abs(goalX - this.x) < 20) {
+        // Check for wall collision ahead
+        let hitsWall = walls.some(w =>
+            nextX + this.width > w.x &&
+            nextX < w.x + w.w &&
+            this.y < w.y + w.h &&
+            this.y + this.height > w.y
+        );
+
+        if ((hasGroundAhead || Math.abs(goalX - this.x) < 20) && !hitsWall) {
             this.x = nextX;
+            this.velocityX = 0; // movement handled directly above; prevent double movement from physics
             // Advance running animation
-            this.animTimer++;
+            this.animTimer += dt;
             if (this.animTimer >= this.animSpeed) {
                 this.animTimer = 0;
                 this.animFrame = (this.animFrame + 1) % 3;
@@ -116,41 +203,21 @@ const npc = {
         if (this.onMouse) {
             const desiredX = mouse.x + (mouse.width / 2) - (this.width / 2);
             const desiredY = mouse.y - this.height;
-            const rawDelta = desiredX - this.x;
-            const distToPlat = Math.abs(rawDelta);
-            const maxMove = this.maxShadowSpeed;
 
-            // If the hand moved too far away, snap directly to it instead of lerping
-            let newX;
-            if (distToPlat > maxMove * 3) {
-                newX = desiredX;
-            } else {
-                const followLerp = 0.75;
-                let deltaX = rawDelta * followLerp;
-                if (deltaX > maxMove) deltaX = maxMove;
-                if (deltaX < -maxMove) deltaX = -maxMove;
-                newX = this.x + deltaX;
-            }
-            const newY = desiredY;
-
-            // Check for intersection with any platform at the new position
-            const collidedPlatform = platforms.find(p => {
-                const npcLeft = newX;
-                const npcRight = newX + this.width;
-                const npcTop = newY;
-                const npcBottom = newY + this.height;
-                const pLeft = p.x;
-                const pRight = p.x + p.w;
-                const pTop = p.y;
-                const pBottom = p.y + p.h;
-                const overlapX = Math.min(npcRight, pRight) - Math.max(npcLeft, pLeft);
-                const overlapY = Math.min(npcBottom, pBottom) - Math.max(npcTop, pTop);
-                const minOverlap = 4;
-                return (overlapX > minOverlap && overlapY > minOverlap);
+            // Check for intersection with any platform or wall at the desired position
+            const allSolids = platforms.concat(walls);
+            const collidedPlatform = allSolids.find(p => {
+                const npcLeft = desiredX;
+                const npcRight = desiredX + this.width;
+                const npcTop = desiredY;
+                const npcBottom = desiredY + this.height;
+                const overlapX = Math.min(npcRight, p.x + p.w) - Math.max(npcLeft, p.x);
+                const overlapY = Math.min(npcBottom, p.y + p.h) - Math.max(npcTop, p.y);
+                return (overlapX > 4 && overlapY > 4);
             });
 
             if (collidedPlatform) {
-                if (rawDelta > 0) {
+                if (desiredX > this.x) {
                     this.x = collidedPlatform.x - this.width - 0.5;
                 } else {
                     this.x = collidedPlatform.x + collidedPlatform.w + 0.5;
@@ -158,11 +225,11 @@ const npc = {
                 this.onMouse = false;
                 this.isGrounded = false;
                 this.velocityY = 1;
-                const handVel = mouse.velX || 0;
-                this.velocityX = Math.max(-maxMove, Math.min(maxMove, handVel));
+                this.velocityX = 0;
             } else {
-                this.x = newX;
-                this.y = newY;
+                // Snap directly to platform — hand tracking already provides smoothing
+                this.x = desiredX;
+                this.y = desiredY;
                 this.velocityX = 0;
                 this.velocityY = 0;
             }
@@ -177,12 +244,31 @@ const npc = {
 
         // Apply gravity only when airborne (not riding hand, not grounded)
         if (!this.onMouse && !this.isGrounded) {
-            this.velocityY += gravity;
+            this.velocityY += gravity * dt;
         }
 
         // Update position
-        this.x += this.velocityX;
-        this.y += this.velocityY;
+        this.x += this.velocityX * dt;
+        this.y += this.velocityY * dt;
+
+        // Wall collision (horizontal blocking while airborne)
+        if (!this.onMouse) {
+            walls.forEach(w => {
+                if (this.x + this.width > w.x &&
+                    this.x < w.x + w.w &&
+                    this.y < w.y + w.h &&
+                    this.y + this.height > w.y) {
+                    const fromLeft = (this.x + this.width) - w.x;
+                    const fromRight = (w.x + w.w) - this.x;
+                    if (fromLeft < fromRight) {
+                        this.x = w.x - this.width;
+                    } else {
+                        this.x = w.x + w.w;
+                    }
+                    this.velocityX = 0;
+                }
+            });
+        }
 
         // Reset grounded for fresh collision detection
         this.isGrounded = false;
@@ -197,30 +283,36 @@ const npc = {
             this.onMouse = true;
         }
 
-        // Check collision with ALL foreground platforms
-        platforms.forEach(p => {
-            if (this.velocityY >= 0 &&
-                this.x + this.width > p.x &&
-                this.x < p.x + p.w &&
-                this.y + this.height >= p.y &&
-                prevY + this.height <= p.y + 1) { // small tolerance for stable grounding
+        // Check collision with ALL foreground platforms (skip while carried on hand)
+        if (!this.onMouse) {
+            platforms.forEach(p => {
+                if (this.velocityY >= 0 &&
+                    this.x + this.width > p.x &&
+                    this.x < p.x + p.w &&
+                    this.y + this.height >= p.y &&
+                    prevY + this.height <= p.y + 1) { // small tolerance for stable grounding
 
-                this.y = p.y - this.height;
-                this.velocityY = 0;
-                this.isGrounded = true;
-                this.onMouse = false;
-                if (this.state === 'JUMPING') this.state = 'SEEKING';
-            }
-        });
+                    this.y = p.y - this.height;
+                    this.velocityY = 0;
+                    this.isGrounded = true;
+                    if (this.state === 'JUMPING' || this.state === 'WAITING') {
+                        this.state = 'SEEKING';
+                        this.velocityX = 0;
+                    }
+                }
+            });
+        }
 
-        // --- DANGER BLOCK COLLISION ---
+        // --- DANGER BLOCK COLLISION (narrower hitbox) ---
+        const hbLeft = this.x + this.hitboxInsetX;
+        const hbRight = this.x + this.width - this.hitboxInsetX;
         for (let i = 0; i < dangerBlocks.length; i++) {
             const d = dangerBlocks[i];
-            if (this.x + this.width > d.x &&
-                this.x < d.x + d.width &&
+            if (hbRight > d.x &&
+                hbLeft < d.x + d.width &&
                 this.y + this.height > d.y &&
                 this.y < d.y + d.height) {
-                this.reset();
+                this.die();
                 break;
             }
         }
@@ -228,7 +320,7 @@ const npc = {
         // --- COLLISION LOGIC ---
         // Fall protection: Reset if the NPC falls off the bottom
         if (this.y > canvas.height + 100) {
-            this.reset();
+            this.die();
         }
     },
 
@@ -260,6 +352,12 @@ const npc = {
     },
 
     draw() {
+        // Round to whole pixels to prevent sub-pixel shimmer/jitter
+        const dx = Math.round(this.x);
+        const dy = Math.round(this.y);
+        const mx = Math.round(mouse.x);
+        const my = Math.round(mouse.y);
+
         // Determine if we should use the running animation
         const isRunning = this.state === 'SEEKING' && this.isGrounded && !this.onMouse
             && this.runFramesLoaded === 3;
@@ -272,47 +370,47 @@ const npc = {
             const frame = this.velocityY < 0 ? this.jumpFrames[0] : this.jumpFrames[1];
             ctx.save();
             if (!this.facingRight) {
-                ctx.translate(this.x + this.width, this.y);
+                ctx.translate(dx + this.width, dy);
                 ctx.scale(-1, 1);
                 ctx.drawImage(frame, 0, 0, this.width, this.height);
             } else {
-                ctx.drawImage(frame, this.x, this.y, this.width, this.height);
+                ctx.drawImage(frame, dx, dy, this.width, this.height);
             }
             ctx.restore();
         } else if (isRunning) {
             const frame = this.runFrames[this.animFrame];
             // Bob up and down: middle frame is raised, first and last are grounded
             const bobOffsets = [0, -3, -1];
-            const drawY = this.y + bobOffsets[this.animFrame];
+            const drawY = dy + bobOffsets[this.animFrame];
             ctx.save();
             if (!this.facingRight) {
-                ctx.translate(this.x + this.width, drawY);
+                ctx.translate(dx + this.width, drawY);
                 ctx.scale(-1, 1);
                 ctx.drawImage(frame, 0, 0, this.width, this.height);
             } else {
-                ctx.drawImage(frame, this.x, drawY, this.width, this.height);
+                ctx.drawImage(frame, dx, drawY, this.width, this.height);
             }
             ctx.restore();
         } else if (this.spriteLoaded && this.sprite) {
-            ctx.drawImage(this.sprite, this.x, this.y, this.width, this.height);
+            ctx.drawImage(this.sprite, dx, dy, this.width, this.height);
         } else {
             ctx.fillStyle = (this.onMouse && mouse.isLocked) ? '#2ecc71' :
                             (this.state === 'JUMPING' ? 'orange' : 'royalblue');
-            ctx.fillRect(this.x, this.y, this.width, this.height);
+            ctx.fillRect(dx, dy, this.width, this.height);
         }
-        
+
         // Only show the jump trajectory if the NPC is on the mouse and it's locked
         if (this.state === 'WAITING' || (this.onMouse && mouse.isLocked)) {
             this.drawJumpArc();
         }
-        
+
         if (mouse.active) {
             // Platform turns dark when locked
             ctx.fillStyle = mouse.isLocked ? '#0a0a1a' : 'rgba(0, 0, 0, 0.1)';
-            ctx.fillRect(mouse.x, mouse.y, mouse.width, mouse.height);
+            ctx.fillRect(mx, my, mouse.width, mouse.height);
         }
 
-        // --- Inside npc.draw() ---
+        // Stamina bar
         if (this.stamina < maxStamina) {
             const barWidth = this.width;
             const barHeight = 8;
@@ -320,18 +418,17 @@ const npc = {
 
             // Background of the bar
             ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
-            ctx.fillRect(this.x, this.y - 15, barWidth, barHeight);
+            ctx.fillRect(dx, dy - 15, barWidth, barHeight);
 
             // Stamina color (green to red)
             ctx.fillStyle = healthPercent > 0.3 ? '#2ecc71' : '#e74c3c';
-            ctx.fillRect(this.x, this.y - 15, barWidth * healthPercent, barHeight);
+            ctx.fillRect(dx, dy - 15, barWidth * healthPercent, barHeight);
         }
 
-        // Inside npc.draw()
+        // Draw the shadow platform if active and stamina remains
         if (mouse.active && this.stamina > 0) {
-            // Only draw the platform if there is stamina left
             ctx.fillStyle = mouse.isLocked ? '#0a0a1a' : 'rgba(255, 255, 255, 0.2)';
-            ctx.fillRect(mouse.x, mouse.y, mouse.width, mouse.height);
+            ctx.fillRect(mx, my, mouse.width, mouse.height);
         }
     }
 };
