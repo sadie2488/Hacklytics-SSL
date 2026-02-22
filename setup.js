@@ -94,6 +94,9 @@ function getLevelDangerBlocks(biome, level) {
     if (biome === 'cave') {
         return getCaveDangerBlocks(level);
     }
+    if (biome === 'mountain') {
+        return getMountainDangerBlocks(level);
+    }
     // Other biomes can be added later
     return [];
 }
@@ -106,7 +109,15 @@ function getCaveDangerBlocks(level) {
             { type: 'spider', x: 600, ceilingY: 0, maxY: gY - 60, speed: 1.2, width: 50, height: 50 }
         ];
         case 3: return [
-            { type: 'spider', x: 1000, ceilingY: 0, maxY: gY - 60, speed: 1.3, width: 50, height: 50 }
+            // Spiders — drop from ceiling at key crossing points
+            { type: 'spider', x: 520,  ceilingY: 0, maxY: gY - 60, speed: 1.4, width: 50, height: 50 },
+            { type: 'spider', x: 1050, ceilingY: 0, maxY: gY - 50, speed: 1.6, width: 50, height: 50 },
+            { type: 'spider', x: 1500, ceilingY: 0, maxY: gY - 70, speed: 1.2, width: 50, height: 50 },
+            // Brambles — ground obstacles the NPC must jump over
+            { type: 'bramble', x: 280,  groundY: gY, width: 45, height: 40 },
+            { type: 'bramble', x: 750,  groundY: gY, width: 45, height: 40 },
+            { type: 'bramble', x: 1250, groundY: gY, width: 45, height: 40 },
+            { type: 'bramble', x: 1680, groundY: gY, width: 45, height: 40 }
         ];
         case 4: return [
             { type: 'spider', x: 300, ceilingY: 0, maxY: gY - 40, speed: 1.6, width: 50, height: 50 },
@@ -119,9 +130,45 @@ function getCaveDangerBlocks(level) {
     }
 }
 
+function getMountainDangerBlocks(level) {
+    const gY = groundLevel + 20; // mountain ground offset
+    switch (level) {
+        case 1: return []; // tutorial — no hazards
+        case 2: return [
+            { type: 'icicle', x: 650, ceilingY: 0, groundY: gY, speed: 5, delay: 150, width: 40, height: 55 }
+        ];
+        case 3: return [
+            // Medium difficulty: 4 icicles over platforms, staggered drop timers
+            // They fall, land, and become permanent ground obstacles
+            { type: 'icicle', x: 200,  ceilingY: 0, groundY: gY, speed: 5, delay: 90,  width: 40, height: 55 },
+            { type: 'icicle', x: 650,  ceilingY: 0, groundY: gY, speed: 6, delay: 200, width: 40, height: 55 },
+            { type: 'icicle', x: 1150, ceilingY: 0, groundY: gY, speed: 5, delay: 320, width: 40, height: 55 },
+            { type: 'icicle', x: 1700, ceilingY: 0, groundY: gY, speed: 6, delay: 420, width: 40, height: 55 }
+        ];
+        case 4: return [
+            { type: 'icicle', x: 150,  ceilingY: 0, groundY: gY, speed: 6, delay: 60,  width: 40, height: 55 },
+            { type: 'icicle', x: 400,  ceilingY: 0, groundY: gY, speed: 7, delay: 120, width: 40, height: 55 },
+            { type: 'icicle', x: 650,  ceilingY: 0, groundY: gY, speed: 5, delay: 180, width: 40, height: 55 },
+            { type: 'icicle', x: 900,  ceilingY: 0, groundY: gY, speed: 7, delay: 240, width: 40, height: 55 },
+            { type: 'icicle', x: 1150, ceilingY: 0, groundY: gY, speed: 6, delay: 300, width: 40, height: 55 },
+            { type: 'icicle', x: 1500, ceilingY: 0, groundY: gY, speed: 5, delay: 360, width: 40, height: 55 },
+            { type: 'icicle', x: 1750, ceilingY: 0, groundY: gY, speed: 7, delay: 400, width: 40, height: 55 }
+        ];
+        default: return [];
+    }
+}
+
 // Spider sprite
 const spiderImg = new Image();
 spiderImg.src = 'Assets/Spider.png';
+
+// Bramble sprite (ground obstacle the NPC must jump over)
+const brambleImg = new Image();
+brambleImg.src = 'Assets/Bramble.png';
+
+// Icicle sprite (ceiling danger for mountain biome)
+const icicleImg = new Image();
+icicleImg.src = 'Assets/Icicle.png';
 
 // Initialize a danger block with runtime state
 function initDangerBlock(block) {
@@ -133,6 +180,17 @@ function initDangerBlock(block) {
         block.ascendSpeed = block.speed * 0.6;  // slow climb back up
         block.bottomPause = 90;         // ~1.5 seconds at bottom (at 60fps)
         block.topPause = 80;            // longer wait at ceiling before next drop
+    }
+    if (block.type === 'bramble') {
+        // Brambles are static ground obstacles — no runtime movement state needed
+        block.y = block.groundY - block.height; // sit on top of the ground
+    }
+    if (block.type === 'icicle') {
+        block.y = block.ceilingY;       // start hanging from ceiling
+        block.fallen = false;           // true once landed on ground
+        block.falling = false;          // true while actively dropping
+        block.waitTimer = block.delay || 0; // frames before dropping
+        block.fallSpeed = block.speed;  // pixels per frame while falling
     }
     return block;
 }
@@ -160,6 +218,22 @@ function updateDangerBlock(block) {
             block.pauseTimer = block.topPause;
         }
     }
+    if (block.type === 'icicle') {
+        if (block.fallen) return; // already on the ground — static obstacle
+        if (!block.falling) {
+            // Waiting at ceiling before dropping
+            block.waitTimer -= dt;
+            if (block.waitTimer <= 0) block.falling = true;
+            return;
+        }
+        // Falling
+        block.y += block.fallSpeed * dt;
+        if (block.y >= block.groundY - block.height) {
+            block.y = block.groundY - block.height;
+            block.fallen = true;
+            block.falling = false;
+        }
+    }
 }
 
 // Draw a danger block
@@ -183,6 +257,38 @@ function drawDangerBlock(block) {
         } else {
             // Fallback rectangle if image hasn't loaded
             ctx.fillStyle = '#1a1a1a';
+            ctx.fillRect(block.x, block.y, block.width, block.height);
+        }
+    }
+    if (block.type === 'bramble') {
+        if (brambleImg.complete && brambleImg.naturalWidth > 0) {
+            ctx.drawImage(brambleImg, block.x, block.y, block.width, block.height);
+        } else {
+            // Fallback: spiky dark shape
+            ctx.fillStyle = '#3a2a1a';
+            ctx.fillRect(block.x, block.y, block.width, block.height);
+        }
+    }
+    if (block.type === 'icicle') {
+        const cx = block.x + block.width / 2;
+
+        // --- Icy thread from ceiling while still hanging or falling ---
+        if (!block.fallen) {
+            ctx.save();
+            ctx.strokeStyle = 'rgba(180, 220, 255, 0.5)';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(cx, block.ceilingY);
+            ctx.lineTo(cx, block.y + 4);
+            ctx.stroke();
+            ctx.restore();
+        }
+
+        // --- Icicle sprite ---
+        if (icicleImg.complete && icicleImg.naturalWidth > 0) {
+            ctx.drawImage(icicleImg, block.x, block.y, block.width, block.height);
+        } else {
+            ctx.fillStyle = '#a0d0f0';
             ctx.fillRect(block.x, block.y, block.width, block.height);
         }
     }

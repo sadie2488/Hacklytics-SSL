@@ -17,6 +17,22 @@ let dt = 1; // 1 = perfect 60fps frame, 2 = running at 30fps, etc.
 // Pause state
 let gamePaused = false;
 
+// Tutorial state
+let tutorialPlaying = false;
+let tutorialAudio = null;
+
+// Subtitle timings — adjust text and start/end (seconds) to match tutorial.mp3
+const tutorialSubtitles = [
+    { start: 0, end: 4, text: "Welcome to A Spark in the Dark." },
+    { start: 4, end: 7, text: "Move your open hand to control the shadow" },
+    { start: 7, end: 10, text: "and pick up Ember the Spark." },
+    { start: 10, end: 13, text: "Close your fist to solidify the platform" },
+    { start: 13, end: 15, text: "and make Ember jump." },
+    { start: 15, end: 19, text: "Make sure she doesn't fall into the pit" },
+    { start: 19, end: 22, text: "and get her to the gates safely." },
+    { start: 22, end: 25, text: "Good luck on your travels." }
+];
+
 // --- Standard parallax tiling (cave) ---
 function drawParallaxLayer(img, parallaxFactor) {
     if (!img.complete || img.naturalWidth === 0) return;
@@ -286,29 +302,38 @@ function resetGame() {
         goal.x = 1800;
         goal.y = platY - goal.height;
     } else if (biomeName === 'cave' && currentLevel === 3) {
-        // Complex level: multiple platforms, holes, a wall, elevated platforms
+        // Spider & Bramble Gauntlet: ground brambles force jumping, spiders guard the gaps
         levelHole = [
-            { x: 300, w: 200 },
-            { x: 750, w: 150 },
-            { x: 1150, w: 250 },
-            { x: 1600, w: 150 }
+            { x: 400, w: 150 },   // Gap 1 — spider overhead
+            { x: 850, w: 200 },   // Gap 2 — wider, spider patrolling
+            { x: 1400, w: 180 }   // Gap 3 — spider + bramble on landing
         ];
         platforms.length = 0;
         platforms.push(
-            // Ground-level platforms
-            { x: 0, y: platY, w: 300, h: 60 },
-            { x: 500, y: platY, w: 250, h: 60 },
-            { x: 900, y: platY, w: 250, h: 60 },
-            { x: 1400, y: platY, w: 200, h: 60 },
-            { x: 1750, y: platY, w: 250, h: 60 },
-            // Elevated platforms (ascending to goal)
-            { x: 1150, y: 280, w: 130, h: 20 },
-            { x: 1450, y: 200, w: 180, h: 20 },
-            { x: 1780, y: 130, w: 220, h: 20 }
+            // Ground-level platforms (brambles sit on these)
+            { x: 0,    y: platY, w: 400, h: 60 },   // Start — bramble at 280
+            { x: 550,  y: platY, w: 300, h: 60 },   // Mid 1 — bramble at 750
+            { x: 1050, y: platY, w: 350, h: 60 },   // Mid 2 — bramble at 1250
+            { x: 1580, y: platY, w: 420, h: 60 }     // End — bramble at 1680, goal ahead
         );
-        walls.push({ x: 1300, y: 150, w: 50, h: platY - 150 });
+        goal.x = 1900;
+        goal.y = platY - goal.height;
+    } else if (biomeName === 'mountain' && currentLevel === 3) {
+        // Icicle Passage: medium difficulty — 3 gaps with icicles dropping between platforms
+        levelHole = [
+            { x: 350, w: 180 },   // Gap 1 — icicle at x=480
+            { x: 800, w: 200 },   // Gap 2 — icicle at x=950
+            { x: 1300, w: 200 }   // Gap 3 — icicle at x=1450
+        ];
+        platforms.length = 0;
+        platforms.push(
+            { x: 0,    y: platY, w: 350, h: 60 },   // Start platform
+            { x: 530,  y: platY, w: 270, h: 60 },   // Mid platform 1
+            { x: 1000, y: platY, w: 300, h: 60 },   // Mid platform 2
+            { x: 1500, y: platY, w: 500, h: 60 }     // End platform — safe runway to goal
+        );
         goal.x = 1850;
-        goal.y = 130 - goal.height;
+        goal.y = platY - goal.height;
     } else {
         levelHole = [];
         platforms.length = 0;
@@ -327,6 +352,60 @@ function resetGame() {
     dangerBlocks = getLevelDangerBlocks(biomeName, currentLevel).map(b => initDangerBlock(Object.assign({}, b)));
 }
 
+function startTutorial() {
+    tutorialPlaying = true;
+    document.getElementById('pause-btn').style.display = 'none';
+    var overlay = document.getElementById('tutorial-overlay');
+    var subtitleEl = document.getElementById('tutorial-subtitle');
+    overlay.style.display = 'flex';
+    subtitleEl.style.opacity = '0';
+
+    tutorialAudio = new Audio('Assets/tutorial.mp3');
+
+    tutorialAudio.addEventListener('timeupdate', function () {
+        var t = tutorialAudio.currentTime;
+        var activeText = '';
+        for (var i = 0; i < tutorialSubtitles.length; i++) {
+            if (t >= tutorialSubtitles[i].start && t < tutorialSubtitles[i].end) {
+                activeText = tutorialSubtitles[i].text;
+                break;
+            }
+        }
+        if (activeText) {
+            subtitleEl.textContent = activeText;
+            subtitleEl.style.opacity = '1';
+        } else {
+            subtitleEl.style.opacity = '0';
+        }
+    });
+
+    tutorialAudio.addEventListener('ended', function () {
+        endTutorial();
+    });
+
+    tutorialAudio.play().catch(function () {
+        // If audio fails, end tutorial after a short delay
+        setTimeout(endTutorial, 3000);
+    });
+
+    gameLoop();
+}
+
+function endTutorial() {
+    tutorialPlaying = false;
+    var overlay = document.getElementById('tutorial-overlay');
+    var subtitleEl = document.getElementById('tutorial-subtitle');
+    subtitleEl.style.opacity = '0';
+    setTimeout(function () {
+        overlay.style.display = 'none';
+    }, 500);
+    document.getElementById('pause-btn').style.display = '';
+    if (tutorialAudio) {
+        tutorialAudio.pause();
+        tutorialAudio = null;
+    }
+}
+
 // Level select button handlers
 document.addEventListener('DOMContentLoaded', function () {
     document.querySelectorAll('.level-btn').forEach(function (btn) {
@@ -337,7 +416,12 @@ document.addEventListener('DOMContentLoaded', function () {
             setTimeout(function () {
                 document.querySelector('.game-container').style.visibility = 'visible';
                 resetGame();
-                gameLoop();
+                // Cave level 1 is the tutorial — freeze and play tutorial audio first
+                if (biomeList[currentBiomeIndex] === 'cave' && currentLevel === 1) {
+                    startTutorial();
+                } else {
+                    gameLoop();
+                }
             }, 900);
         });
     });
@@ -371,6 +455,7 @@ document.addEventListener('DOMContentLoaded', function () {
     // Return to menu button
     document.getElementById('menu-btn').addEventListener('click', function () {
         gamePaused = false;
+        if (tutorialPlaying) endTutorial();
         document.getElementById('pause-menu').style.display = 'none';
         document.getElementById('pause-btn').style.display = '';
         document.querySelector('.game-container').style.visibility = 'hidden';
@@ -441,19 +526,24 @@ function gameLoop(timestamp) {
 
     // --- UPDATE PHASE (all logic before any drawing) ---
 
-    // Convert screen-space mouse to world-space using previous frame's camera
-    mouse.lastX = mouse.x;
-    mouse.lastY = mouse.y;
-    mouse.x = mouse.screenX + cameraX;
-    // Clamp shadow platform so it cannot go below the ground surface
-    const biomeName_loop = biomeList[currentBiomeIndex];
-    const groundSurface = groundLevel + ((biomeName_loop === 'mountain' || biomeName_loop === 'cave') ? 20 : 0);
-    if (mouse.screenY > groundSurface) mouse.screenY = groundSurface;
-    mouse.y = mouse.screenY;
-    mouse.velX = mouse.x - mouse.lastX;
-    mouse.velY = mouse.y - mouse.lastY;
+    // During tutorial, freeze everything — no hand platform, no NPC movement
+    if (tutorialPlaying) {
+        mouse.active = false;
+    } else {
+        // Convert screen-space mouse to world-space using previous frame's camera
+        mouse.lastX = mouse.x;
+        mouse.lastY = mouse.y;
+        mouse.x = mouse.screenX + cameraX;
+        // Clamp shadow platform so it cannot go below the ground surface
+        const biomeName_loop = biomeList[currentBiomeIndex];
+        const groundSurface = groundLevel + ((biomeName_loop === 'mountain' || biomeName_loop === 'cave') ? 20 : 0);
+        if (mouse.screenY > groundSurface) mouse.screenY = groundSurface;
+        mouse.y = mouse.screenY;
+        mouse.velX = mouse.x - mouse.lastX;
+        mouse.velY = mouse.y - mouse.lastY;
+    }
 
-    if (!isLevelComplete) {
+    if (!isLevelComplete && !tutorialPlaying) {
         if (deathAnimating) {
             updateDeathParticles();
             deathTimer -= dt;

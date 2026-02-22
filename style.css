@@ -292,3 +292,32 @@ canvas#gameCanvas {
     box-shadow: 0 0 20px rgba(150, 150, 220, 0.3);
     text-shadow: 0 0 12px rgba(200, 200, 255, 0.6);
 }
+
+#tutorial-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 160;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    pointer-events: none;
+}
+
+#tutorial-subtitle {
+    background: rgba(0, 0, 0, 0.75);
+    color: #e8e0d0;
+    font-family: 'Cinzel Decorative', serif;
+    font-size: 15px;
+    padding: 10px 28px;
+    border-radius: 6px;
+    margin-bottom: 30px;
+    text-align: center;
+    max-width: 85%;
+    letter-spacing: 1px;
+    text-shadow: 0 0 8px rgba(200, 200, 255, 0.3);
+    opacity: 0;
+    transition: opacity 0.4s ease;
+}
